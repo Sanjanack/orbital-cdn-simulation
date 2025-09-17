@@ -59,8 +59,8 @@ A comprehensive web-based simulation platform for modeling satellite-based conte
 
 1. **Clone the Repository**
    ```bash
-   git clone <repository-url>
-   cd orbital_cdn_simulation
+   git clone https://github.com/Sanjanack/orbital-cdn-simulation.git
+   cd orbital-cdn-simulation
    ```
 
 2. **Create Virtual Environment**
@@ -317,4 +317,4 @@ For support and questions:
 
 **Made with ❤️ by Team Orbital CDN**
 
-*Exploring the future of satellite-based content delivery networks through advanced simulation technology.* 
+*Exploring the future of satellite-based content delivery networks through advanced simulation technology.*
