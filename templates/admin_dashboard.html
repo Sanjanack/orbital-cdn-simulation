@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Orbital CDN Simulation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --dark-bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text-light: #ecf0f1;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--card-bg) 100%);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .navbar-custom {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--secondary-color) !important;
+        }
+        
+        .nav-link {
+            color: var(--text-light) !important;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+        }
+        
+        .admin-badge {
+            background: linear-gradient(45deg, var(--accent-color), #c0392b);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .dashboard-container {
+            padding: 30px 0;
+        }
+        
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .welcome-text {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+        
+        .admin-info {
+            color: rgba(236, 240, 241, 0.8);
+            font-size: 1.1rem;
+        }
+        
+        .card-custom {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .card-custom:hover {
+            transform: translateY(-5px);
+            border-color: var(--secondary-color);
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.2);
+        }
+        
+        .card-header-custom {
+            background: rgba(52, 152, 219, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px;
+        }
+        
+        .card-title-custom {
+            color: var(--secondary-color);
+            font-weight: 600;
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .card-body-custom {
+            padding: 25px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--secondary-color);
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .stat-users { color: var(--secondary-color); }
+        .stat-sessions { color: var(--success-color); }
+        .stat-completed { color: var(--warning-color); }
+        .stat-active { color: var(--accent-color); }
+        
+        .stat-label {
+            color: rgba(236, 240, 241, 0.8);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            height: 400px;
+        }
+        
+        .chart-title {
+            color: var(--text-light);
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .table-custom {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .table-custom th {
+            background: rgba(52, 152, 219, 0.1);
+            color: var(--secondary-color);
+            border: none;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+        }
+        
+        .table-custom td {
+            color: var(--text-light);
+            border-color: rgba(255, 255, 255, 0.1);
+            vertical-align: middle;
+        }
+        
+        .table-custom tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .table-custom tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .user-role {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .role-admin {
+            background: rgba(231, 76, 60, 0.2);
+            color: var(--accent-color);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .role-user {
+            background: rgba(52, 152, 219, 0.2);
+            color: var(--secondary-color);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .session-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-completed {
+            background: rgba(39, 174, 96, 0.2);
+            color: var(--success-color);
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+        
+        .status-running {
+            background: rgba(52, 152, 219, 0.2);
+            color: var(--secondary-color);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .status-failed {
+            background: rgba(231, 76, 60, 0.2);
+            color: var(--accent-color);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .btn-admin {
+            background: linear-gradient(45deg, var(--secondary-color), #2980b9);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.8rem;
+        }
+        
+        .btn-admin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-danger-admin {
+            background: linear-gradient(45deg, var(--accent-color), #c0392b);
+        }
+        
+        .btn-success-admin {
+            background: linear-gradient(45deg, var(--success-color), #229954);
+        }
+        
+        .search-box {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: var(--text-light);
+            padding: 10px 15px;
+            margin-bottom: 20px;
+        }
+        
+        .search-box:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            color: var(--text-light);
+        }
+        
+        .search-box::placeholder {
+            color: rgba(236, 240, 241, 0.5);
+        }
+        
+        .tab-content {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 0 15px 15px;
+            padding: 25px;
+        }
+        
+        .nav-tabs-custom {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-tabs-custom .nav-link {
+            color: rgba(236, 240, 241, 0.7) !important;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            margin-right: 5px;
+            padding: 12px 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tabs-custom .nav-link.active {
+            color: var(--secondary-color) !important;
+            background: rgba(52, 152, 219, 0.1);
+            border-bottom: 2px solid var(--secondary-color);
+        }
+        
+        .nav-tabs-custom .nav-link:hover {
+            color: var(--secondary-color) !important;
+            background: rgba(52, 152, 219, 0.05);
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .dashboard-container {
+                padding: 20px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-satellite me-2"></i>Orbital CDN
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="fas fa-user me-2"></i>{{ current_user.username }}
+                            <span class="admin-badge ms-2">Admin</span>
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container" style="margin-top: 80px;">
+        <div class="container">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="welcome-text">Admin Dashboard</h1>
+                        <p class="admin-info">
+                            <i class="fas fa-shield-alt me-2"></i>System Administrator Access
+                            <br><i class="fas fa-calendar me-2"></i>Last login: {{ current_user.last_login.strftime('%B %d, %Y at %I:%M %p') if current_user.last_login else 'Never' }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="d-flex align-items-center justify-content-md-end">
+                            <i class="fas fa-server me-2" style="color: var(--success-color);"></i>
+                            <span>System Online</span>
+                            <br>
+                            <small class="text-muted">Last Update: <span id="lastUpdate">{{ now.strftime('%H:%M:%S') if now else 'N/A' }}</span></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Overview -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-chart-pie me-2"></i>System Overview
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value stat-users">{{ total_users }}</div>
+                                    <div class="stat-label">Total Users</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value stat-sessions">{{ total_sessions }}</div>
+                                    <div class="stat-label">Total Sessions</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value stat-completed">{{ completed_sessions }}</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value stat-active">{{ running_sessions }}</div>
+                                    <div class="stat-label">Active Now</div>
+                                </div>
+                            </div>
+                            {% if current_kpis %}
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <div class="stat-value" style="color:#9b59b6;">{{ (current_kpis.cache_utilization * 100) | round(1) }}%</div>
+                                        <div class="stat-label">Cache Utilization</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <div class="stat-value" style="color:#1abc9c;">{{ current_kpis.hit_rate | round(1) }}%</div>
+                                        <div class="stat-label">Hit Rate (Live)</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <div class="stat-value" style="color:#e67e22;">{{ current_kpis.cache_size }}/{{ current_kpis.cache_capacity }}</div>
+                                        <div class="stat-label">Cache Size</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="stat-card">
+                                        <div class="stat-value" style="color:#ecf0f1;">{{ current_kpis.satellite_name }}</div>
+                                        <div class="stat-label">Satellite</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CDN Performance Overview -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-network-wired me-2"></i>CDN Performance Overview
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value" style="color: #3498db;">{{ cdn_stats.total_requests }}</div>
+                                    <div class="stat-label">Total Requests</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" style="color: #27ae60;">{{ cdn_stats.cache_hits }}</div>
+                                    <div class="stat-label">Cache Hits</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" style="color: #e74c3c;">{{ cdn_stats.cache_misses }}</div>
+                                    <div class="stat-label">Cache Misses</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" style="color: #f39c12;">{{ "%.1f"|format(cdn_stats.avg_hit_rate) }}%</div>
+                                    <div class="stat-label">Hit Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Simulations Monitor -->
+            {% if active_simulations %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-satellite-dish me-2"></i>Active CDN Simulations
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="table-responsive">
+                                <table class="table table-custom">
+                                    <thead>
+                                        <tr>
+                                            <th>Session ID</th>
+                                            <th>User</th>
+                                            <th>Started</th>
+                                            <th>Duration</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for sim in active_simulations %}
+                                        <tr>
+                                            <td>#{{ sim.id }}</td>
+                                            <td>User {{ sim.user_id }}</td>
+                                            <td>{{ sim.created_at.strftime('%H:%M:%S') }}</td>
+                                            <td>{{ ((now - sim.created_at).total_seconds() / 60) | round(1) }} min</td>
+                                            <td><span class="session-status status-running">Running</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Pending Users Approval -->
+            {% if pending_users %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-user-clock me-2"></i>Pending User Approvals
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="table-responsive">
+                                <table class="table table-custom">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Requested</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in pending_users %}
+                                        <tr>
+                                            <td><strong>{{ user.username }}</strong></td>
+                                            <td>{{ user.email }}</td>
+                                            <td><span class="user-role role-{{ user.role }}">{{ user.role }}</span></td>
+                                            <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>
+                                                <form method="POST" action="{{ url_for('approve_user', user_id=user.id) }}" style="display: inline;">
+                                                    <button type="submit" class="btn btn-admin btn-success-admin btn-sm" title="Approve User">
+                                                        <i class="fas fa-check"></i> Approve
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ url_for('reject_user', user_id=user.id) }}" style="display: inline; margin-left: 5px;">
+                                                    <button type="submit" class="btn btn-admin btn-danger-admin btn-sm" title="Reject User" 
+                                                            onclick="return confirm('Are you sure you want to reject this user?')">
+                                                        <i class="fas fa-times"></i> Reject
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Analytics and Management Tabs -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-cogs me-2"></i>System Management
+                            </h3>
+                        </div>
+                        <div class="card-body-custom p-0">
+                            <ul class="nav nav-tabs nav-tabs-custom" id="adminTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="analytics-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#analytics" type="button" role="tab">
+                                        <i class="fas fa-chart-line me-2"></i>Analytics
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="users-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#users" type="button" role="tab">
+                                        <i class="fas fa-users me-2"></i>User Management
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="sessions-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#sessions" type="button" role="tab">
+                                        <i class="fas fa-history me-2"></i>Session History
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="requests-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#requests" type="button" role="tab">
+                                        <i class="fas fa-database me-2"></i>Content Requests
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content" id="adminTabsContent">
+                                <!-- Analytics Tab -->
+                                <div class="tab-pane fade show active" id="analytics" role="tabpanel">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <h5 class="chart-title">User Growth Over Time</h5>
+                                                <canvas id="userGrowthChart"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="chart-container">
+                                                <h5 class="chart-title">Session Activity</h5>
+                                                <canvas id="sessionActivityChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-4">
+                                        <div class="col-12">
+                                            <div class="chart-container">
+                                                <h5 class="chart-title">System Performance Metrics</h5>
+                                                <canvas id="performanceChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Users Tab -->
+                                <div class="tab-pane fade" id="users" role="tabpanel">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <input type="text" class="form-control search-box" id="userSearch" 
+                                                   placeholder="Search users by username or email...">
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <button class="btn btn-admin btn-success-admin" onclick="exportUsers()">
+                                                <i class="fas fa-download me-2"></i>Export Users
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-custom">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Username</th>
+                                                    <th>Email</th>
+                                                    <th>Role</th>
+                                                    <th>Created</th>
+                                                    <th>Last Login</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="usersTableBody">
+                                                <!-- Users will be loaded here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Sessions Tab -->
+                                <div class="tab-pane fade" id="sessions" role="tabpanel">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <input type="text" class="form-control search-box" id="sessionSearch" 
+                                                   placeholder="Search sessions...">
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <button class="btn btn-admin btn-success-admin" onclick="exportSessions()">
+                                                <i class="fas fa-download me-2"></i>Export Sessions
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-custom">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>User</th>
+                                                    <th>Status</th>
+                                                    <th>Created</th>
+                                                    <th>Configuration</th>
+                                                    <th>Performance</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="sessionsTableBody">
+                                                <!-- Sessions will be loaded here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- Requests Tab -->
+                                <div class="tab-pane fade" id="requests" role="tabpanel">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <input type="text" class="form-control search-box" id="requestSearch" 
+                                                   placeholder="Search content requests...">
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <button class="btn btn-admin btn-success-admin" onclick="exportRequests()">
+                                                <i class="fas fa-download me-2"></i>Export Requests
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-custom">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Session</th>
+                                                    <th>User</th>
+                                                    <th>Content</th>
+                                                    <th>Type</th>
+                                                    <th>Status</th>
+                                                    <th>Timestamp</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="requestsTableBody">
+                                                <!-- Requests will be loaded here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize charts when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAnalytics();
+            loadUsers();
+            loadSessions();
+            loadRequests();
+            startRealTimeMonitoring();
+        });
+
+        // Load analytics data
+        function loadAnalytics() {
+            fetch('/api/analytics')
+                .then(response => response.json())
+                .then(data => {
+                    createUserGrowthChart(data.users_over_time);
+                    createSessionActivityChart(data.sessions_over_time);
+                    createPerformanceChart(data);
+                })
+                .catch(error => console.error('Error loading analytics:', error));
+        }
+
+        // Create user growth chart
+        function createUserGrowthChart(userData) {
+            const ctx = document.getElementById('userGrowthChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: userData.map(item => item.date),
+                    datasets: [{
+                        label: 'New Users',
+                        data: userData.map(item => item.count),
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ecf0f1' }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#ecf0f1' } },
+                        y: { ticks: { color: '#ecf0f1' } }
+                    }
+                }
+            });
+        }
+
+        // Create session activity chart
+        function createSessionActivityChart(sessionData) {
+            const ctx = document.getElementById('sessionActivityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sessionData.map(item => item.date),
+                    datasets: [{
+                        label: 'Sessions',
+                        data: sessionData.map(item => item.count),
+                        backgroundColor: '#27ae60',
+                        borderColor: '#229954',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ecf0f1' }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#ecf0f1' } },
+                        y: { ticks: { color: '#ecf0f1' } }
+                    }
+                }
+            });
+        }
+
+        // Create performance chart
+        function createPerformanceChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Total Users', 'Total Sessions', 'Completed Sessions'],
+                    datasets: [{
+                        data: [data.total_users, data.total_sessions, data.completed_sessions],
+                        backgroundColor: ['#3498db', '#27ae60', '#f39c12'],
+                        borderWidth: 2,
+                        borderColor: '#1a1a2e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#ecf0f1' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load users data
+        function loadUsers() {
+            // Use the users data passed from Flask route
+            const users = [
+                {% for user in users %}
+                {
+                    id: {{ user.id }},
+                    username: '{{ user.username }}',
+                    email: '{{ user.email }}',
+                    role: '{{ user.role }}',
+                    created: '{{ user.created_at.strftime("%Y-%m-%d") }}',
+                    last_login: '{{ user.last_login.strftime("%Y-%m-%d") if user.last_login else "Never" }}'
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ];
+            
+            displayUsers(users);
+        }
+
+        // Display users in table
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td><span class="user-role role-${user.role}">${user.role}</span></td>
+                    <td>${user.created}</td>
+                    <td>${user.last_login}</td>
+                    <td>
+                        <button class="btn btn-admin btn-danger-admin btn-sm" onclick="deleteUser(${user.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Load sessions data
+        function loadSessions() {
+            const sessions = [
+                {% for session in sessions %}
+                {
+                    id: {{ session.id }},
+                    username: '{{ user_map.get(session.user_id, "User " ~ session.user_id) }}',
+                    status: '{{ session.status }}',
+                    created: '{{ session.created_at.strftime("%Y-%m-%d %H:%M") }}',
+                    config: '{{ session.config[:50] + "..." if session.config else "N/A" }}',
+                    duration: '{{ session.created_at.strftime("%H:%M:%S") }}'
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ];
+            
+            displaySessions(sessions);
+        }
+
+        // Display sessions in table
+        function displaySessions(sessions) {
+            const tbody = document.getElementById('sessionsTableBody');
+            tbody.innerHTML = sessions.map(session => `
+                <tr>
+                    <td>${session.id}</td>
+                    <td><strong>${session.username}</strong></td>
+                    <td><span class="session-status status-${session.status}">${session.status}</span></td>
+                    <td>${session.created}</td>
+                    <td>${session.config}</td>
+                    <td>
+                        <small class="text-muted">
+                            Started: ${session.duration}<br>
+                            <span class="badge bg-info">Live</span>
+                        </small>
+                    </td>
+                    <td>
+                        <button class="btn btn-admin btn-sm" onclick="viewSession(${session.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-admin btn-sm" onclick="stopSession(${session.id})">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Load requests data
+        function loadRequests() {
+            const requests = [
+                {% for request in recent_requests %}
+                {
+                    id: {{ request.id }},
+                    session_id: {{ request.session_id }},
+                    user_id: '{{ request.user_id }}',
+                    content_id: '{{ request.content_id }}',
+                    content_type: '{{ request.content_type }}',
+                    status: '{{ request.status }}',
+                    timestamp: '{{ request.timestamp }}'
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ];
+            
+            displayRequests(requests);
+        }
+
+        // Display requests in table
+        function displayRequests(requests) {
+            const tbody = document.getElementById('requestsTableBody');
+            tbody.innerHTML = requests.map(request => `
+                <tr>
+                    <td>${request.id}</td>
+                    <td>${request.session_id}</td>
+                    <td>${request.user_id}</td>
+                    <td>${request.content_id}</td>
+                    <td>${request.content_type}</td>
+                    <td><span class="session-status status-${request.status.toLowerCase()}">${request.status}</span></td>
+                    <td>${request.timestamp}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Search functionality
+        document.getElementById('userSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#usersTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        document.getElementById('sessionSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#sessionsTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        document.getElementById('requestSearch').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#requestsTableBody tr');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Export functions
+        function exportUsers() {
+            alert('Exporting users data...');
+            // Implementation for exporting users data
+        }
+
+        function exportSessions() {
+            alert('Exporting sessions data...');
+            // Implementation for exporting sessions data
+        }
+
+        function exportRequests() {
+            alert('Exporting requests data...');
+            // Implementation for exporting requests data
+        }
+
+        // Action functions
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                alert('Deleting user ' + userId);
+                // Implementation for deleting user
+            }
+        }
+
+        function viewSession(sessionId) {
+            alert('Viewing session ' + sessionId);
+            // Implementation for viewing session details
+        }
+
+        function stopSession(sessionId) {
+            if (confirm('Are you sure you want to stop this simulation session?')) {
+                alert('Stopping session ' + sessionId);
+                // Implementation for stopping session
+            }
+        }
+
+        // Real-time monitoring
+        function startRealTimeMonitoring() {
+            setInterval(() => {
+                fetch('/api/admin/monitoring')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateRealTimeStats(data);
+                    })
+                    .catch(error => console.error('Monitoring error:', error));
+            }, 5000); // Update every 5 seconds
+        }
+
+        function updateRealTimeStats(data) {
+            // Update active sessions count
+            const activeElement = document.querySelector('.stat-active');
+            if (activeElement) {
+                activeElement.textContent = data.active_sessions;
+            }
+            
+            // Update timestamp
+            const timestampElement = document.getElementById('lastUpdate');
+            if (timestampElement) {
+                timestampElement.textContent = new Date(data.timestamp).toLocaleTimeString();
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard - Orbital CDN Simulation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --dark-bg: #1a1a2e;
+            --card-bg: #16213e;
+            --text-light: #ecf0f1;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--card-bg) 100%);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .navbar-custom {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--secondary-color) !important;
+        }
+        
+        .nav-link {
+            color: var(--text-light) !important;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+        }
+        
+        .dashboard-container {
+            padding: 30px 0;
+        }
+        
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .welcome-text {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+        
+        .user-info {
+            color: rgba(236, 240, 241, 0.8);
+            font-size: 1.1rem;
+        }
+        
+        .card-custom {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .card-custom:hover {
+            transform: translateY(-5px);
+            border-color: var(--secondary-color);
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.2);
+        }
+        
+        .card-header-custom {
+            background: rgba(52, 152, 219, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px;
+        }
+        
+        .card-title-custom {
+            color: var(--secondary-color);
+            font-weight: 600;
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .card-body-custom {
+            padding: 25px;
+        }
+        
+        .form-control-custom {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: var(--text-light);
+            padding: 12px 15px;
+        }
+        
+        .form-control-custom:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+            color: var(--text-light);
+        }
+        
+        .form-label-custom {
+            color: var(--text-light);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .btn-simulation {
+            background: linear-gradient(45deg, var(--success-color), #229954);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 25px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-simulation:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-simulation:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-stop {
+            background: linear-gradient(45deg, var(--accent-color), #c0392b);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-running {
+            background: var(--success-color);
+        }
+        
+        .status-stopped {
+            background: var(--accent-color);
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--secondary-color);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: rgba(236, 240, 241, 0.8);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-title {
+            color: var(--text-light);
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .chart-img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        
+        .session-history {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .session-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .session-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--secondary-color);
+        }
+        
+        .session-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-completed {
+            background: rgba(39, 174, 96, 0.2);
+            color: var(--success-color);
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+        
+        .status-running {
+            background: rgba(52, 152, 219, 0.2);
+            color: var(--secondary-color);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .status-failed {
+            background: rgba(231, 76, 60, 0.2);
+            color: var(--accent-color);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner-border {
+            color: var(--secondary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .dashboard-container {
+                padding: 20px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-satellite me-2"></i>Orbital CDN
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="fas fa-user me-2"></i>{{ current_user.username }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container" style="margin-top: 80px;">
+        <div class="container">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="welcome-text">Welcome back, {{ current_user.username }}!</h1>
+                        <p class="user-info">
+                            <i class="fas fa-calendar me-2"></i>Member since {{ current_user.created_at.strftime('%B %d, %Y') }}
+                            {% if current_user.last_login %}
+                                <br><i class="fas fa-clock me-2"></i>Last login: {{ current_user.last_login.strftime('%B %d, %Y at %I:%M %p') }}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="d-flex align-items-center justify-content-md-end">
+                            <span class="status-indicator" id="globalStatus"></span>
+                            <span id="globalStatusText">Ready</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- On-demand Request Panel -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-bolt me-2"></i>Request Content On-Demand
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="alert alert-info" style="background: rgba(39,174,96,0.1); border: 1px solid rgba(39,174,96,0.3); color: #ecf0f1;">
+                                <strong>What is this?</strong> Send a single content request and instantly see if it was a <em>Hit</em> (served from satellite cache) or <em>Miss</em> (fetched from ground). Provide a stable <em>Content ID</em> to repeat the same item and observe cache behavior.
+                            </div>
+                            <form id="requestForm" class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Content Type</label>
+                                    <select class="form-control form-control-custom" name="content_type">
+                                        <option value="video">Video</option>
+                                        <option value="image">Image</option>
+                                        <option value="audio">Audio</option>
+                                        <option value="game">Game</option>
+                                        <option value="document" selected>Document</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Size (MB)</label>
+                                    <input type="number" class="form-control form-control-custom" name="size" value="50" min="1" max="1000">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label-custom">Speed (x)</label>
+                                    <input type="number" class="form-control form-control-custom" name="speed" value="1.0" min="0.1" max="5" step="0.1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label-custom">Optional Content ID</label>
+                                    <input type="text" class="form-control form-control-custom" name="content_id" placeholder="e.g., video_trailer_1080p">
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-simulation w-100">
+                                        <i class="fas fa-paper-plane me-2"></i>Send Request
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="mt-4">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-value" id="reqStatus">-</div>
+                                            <div class="stat-label">Hit/Miss</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-value" id="reqSource">-</div>
+                                            <div class="stat-label">Source</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-value" id="reqSat">-</div>
+                                            <div class="stat-label">Satellite</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-card">
+                                            <div class="stat-value" id="reqTime">-</div>
+                                            <div class="stat-label">Delivery (s)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Controls -->
+            <div class="row mb-4">
+                <div class="col-lg-8">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-rocket me-2"></i>Simulation Controls
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="alert alert-info" style="background: rgba(52,152,219,0.1); border: 1px solid rgba(52,152,219,0.3); color: #ecf0f1;">
+                                <strong>What is Simulation?</strong> Runs a short scenario where multiple users request content over time. Use this to see trends like cache hit rate and utilization. Configure the parameters below and click <em>Start Simulation</em>. Charts will appear when it completes.
+                            </div>
+                            <form id="simulationForm">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Simulation Duration (time units)</label>
+                                        <input type="number" class="form-control form-control-custom" name="simulation_duration" 
+                                               value="200" min="50" max="1000" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Request Interval (time units)</label>
+                                        <input type="number" class="form-control form-control-custom" name="request_interval" 
+                                               value="3" min="1" max="20" step="0.5" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Cache Size (items)</label>
+                                        <input type="number" class="form-control form-control-custom" name="cache_size" 
+                                               value="12" min="5" max="50" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Content Catalog Size</label>
+                                        <input type="number" class="form-control form-control-custom" name="content_catalog_size" 
+                                               value="20" min="10" max="100" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Number of Users</label>
+                                        <input type="number" class="form-control form-control-custom" name="user_count" 
+                                               value="4" min="1" max="20" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label-custom">Logging Interval</label>
+                                        <input type="number" class="form-control form-control-custom" name="log_interval" 
+                                               value="10" min="5" max="50" required>
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-simulation me-3" id="startBtn">
+                                        <i class="fas fa-play me-2"></i>Start Simulation
+                                    </button>
+                                    <button type="button" class="btn btn-simulation btn-stop" id="stopBtn" disabled>
+                                        <i class="fas fa-stop me-2"></i>Stop Simulation
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-chart-line me-2"></i>Quick Stats
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="totalSessions">{{ sessions|length }}</div>
+                                    <div class="stat-label">Total Sessions</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="completedSessions">{{ sessions|selectattr('status', 'equalto', 'completed')|list|length }}</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="runningSessions">{{ sessions|selectattr('status', 'equalto', 'running')|list|length }}</div>
+                                    <div class="stat-label">Running</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Running simulation...</p>
+            </div>
+
+            <!-- Simulation Results -->
+            <div class="row" id="resultsSection" style="display: none;">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-chart-bar me-2"></i>Simulation Results
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="chart-title">Cache Hit Rate Over Time</h5>
+                                        <img id="hitRateChart" class="chart-img" alt="Hit Rate Chart">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="chart-title">Cache Utilization</h5>
+                                        <img id="utilizationChart" class="chart-img" alt="Utilization Chart">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="chart-title">Content Type Distribution</h5>
+                                        <img id="contentChart" class="chart-img" alt="Content Chart">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5 class="chart-title">Request Status</h5>
+                                        <img id="statusChart" class="chart-img" alt="Status Chart">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session History -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card card-custom">
+                        <div class="card-header-custom">
+                            <h3 class="card-title-custom">
+                                <i class="fas fa-history me-2"></i>Session History
+                            </h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="session-history">
+                                {% if sessions %}
+                                    {% for session in sessions %}
+                                        <div class="session-item">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-3">
+                                                    <strong>Session #{{ session.id }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ session.created_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <span class="session-status status-{{ session.status }}">
+                                                        {{ session.status|title }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <small class="text-muted">
+                                                        {% if session.config %}
+                                                            {% set config = session.config|from_json %}
+                                                            Duration: {{ config.simulation_duration }} units, 
+                                                            Users: {{ config.user_count }}, 
+                                                            Cache: {{ config.cache_size }} items
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-2 text-end">
+                                                    {% if session.status == 'completed' %}
+                                                        <button class="btn btn-sm btn-outline-primary" onclick="viewResults({{ session.id }})">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>No simulation sessions yet. Start your first simulation to see results here!</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let isSimulationRunning = false;
+        let currentSessionId = null;
+
+        // Form submission
+        document.getElementById('simulationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startSimulation();
+        });
+
+        // Start simulation
+        function startSimulation() {
+            if (isSimulationRunning) return;
+
+            const formData = new FormData(document.getElementById('simulationForm'));
+            
+            // Show loading spinner
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('startBtn').disabled = true;
+            
+            fetch('/start_simulation', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSessionId = data.session_id;
+                    isSimulationRunning = true;
+                    updateSimulationStatus(true);
+                    startStatusPolling();
+                } else {
+                    alert('Failed to start simulation: ' + data.error);
+                    resetSimulationControls();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error starting simulation');
+                resetSimulationControls();
+            });
+        }
+
+        // Stop simulation
+        document.getElementById('stopBtn').addEventListener('click', function() {
+            if (!isSimulationRunning) return;
+            
+            isSimulationRunning = false;
+            updateSimulationStatus(false);
+            resetSimulationControls();
+        });
+
+        // Update simulation status
+        function updateSimulationStatus(running) {
+            const statusIndicator = document.getElementById('globalStatus');
+            const statusText = document.getElementById('globalStatusText');
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            if (running) {
+                statusIndicator.className = 'status-indicator status-running';
+                statusText.textContent = 'Simulation Running';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else {
+                statusIndicator.className = 'status-indicator status-stopped';
+                statusText.textContent = 'Ready';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+
+        // Reset simulation controls
+        function resetSimulationControls() {
+            document.getElementById('loadingSpinner').style.display = 'none';
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        // Poll simulation status
+        function startStatusPolling() {
+            const pollInterval = setInterval(() => {
+                if (!isSimulationRunning) {
+                    clearInterval(pollInterval);
+                    return;
+                }
+
+                fetch('/simulation_status')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'completed') {
+                            isSimulationRunning = false;
+                            updateSimulationStatus(false);
+                            resetSimulationControls();
+                            loadSimulationResults();
+                            clearInterval(pollInterval);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error polling status:', error);
+                    });
+            }, 2000);
+        }
+
+        // Load simulation results
+        function loadSimulationResults() {
+            fetch('/simulation_results')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Error loading results:', data.error);
+                        return;
+                    }
+
+                    // Display charts
+                    if (data.charts.hit_rate) {
+                        document.getElementById('hitRateChart').src = 'data:image/png;base64,' + data.charts.hit_rate;
+                    }
+                    if (data.charts.cache_utilization) {
+                        document.getElementById('utilizationChart').src = 'data:image/png;base64,' + data.charts.cache_utilization;
+                    }
+                    if (data.charts.content_distribution) {
+                        document.getElementById('contentChart').src = 'data:image/png;base64,' + data.charts.content_distribution;
+                    }
+                    if (data.charts.request_status) {
+                        document.getElementById('statusChart').src = 'data:image/png;base64,' + data.charts.request_status;
+                    }
+
+                    // Show results section and keep it visible
+                    document.getElementById('resultsSection').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error loading results:', error);
+                });
+        }
+
+        // View results for a specific session
+        function viewResults(sessionId) {
+            // This would typically load results for a specific session
+            alert('Viewing results for session ' + sessionId);
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSimulationStatus(false);
+        });
+
+        // Handle on-demand request
+        document.getElementById('requestForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const payload = Object.fromEntries(formData.entries());
+            fetch('/api/request_content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.connected) {
+                    alert('Request failed: ' + (data.error || 'unknown error'));
+                    return;
+                }
+                document.getElementById('reqStatus').textContent = data.status;
+                document.getElementById('reqSource').textContent = data.delivery_source;
+                document.getElementById('reqSat').textContent = data.satellite || 'LEO-1';
+                document.getElementById('reqTime').textContent = (data.delivery_time || 0).toFixed(2);
+            })
+            .catch(err => alert('Error: ' + err));
+        });
+    </script>
+</body>
+</html> 

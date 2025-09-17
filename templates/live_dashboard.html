@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Satellite CDN Simulation - Real-time Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            border-bottom: 2px solid #00d4ff;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .project-title h1 {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .satellite-icon {
+            font-size: 2.5rem;
+            animation: orbit 4s linear infinite;
+        }
+
+        @keyframes orbit {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .team-info {
+            text-align: right;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-panel h2 {
+            margin-bottom: 20px;
+            color: #00d4ff;
+            font-size: 1.5rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #00ff88, #00cc6a);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #ffaa00, #ff8800);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+
+        .speed-control input {
+            width: 100px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 5px 10px;
+            color: white;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-running {
+            background: #00ff88;
+        }
+
+        .status-paused {
+            background: #ffaa00;
+        }
+
+        .status-stopped {
+            background: #ff4444;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 300px;
+        }
+
+        .dashboard-card h3 {
+            margin-bottom: 20px;
+            color: #00d4ff;
+            font-size: 1.3rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .live-feed {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .feed-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .feed-item.hit {
+            background: rgba(0, 255, 136, 0.1);
+            border-left-color: #00ff88;
+        }
+
+        .feed-item.miss {
+            background: rgba(255, 68, 68, 0.1);
+            border-left-color: #ff4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .cache-visualization {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .cache-item {
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #00d4ff; }
+            to { box-shadow: 0 0 20px #00d4ff, 0 0 30px #00d4ff; }
+        }
+
+        .content-type-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .content-stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .content-stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .user-activity {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .user-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-card h4 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .user-metrics {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="project-title">
+                <div class="satellite-icon">🛰️</div>
+                <h1>Live Satellite CDN Simulation</h1>
+            </div>
+            <div class="team-info">
+                <div>Team: Neha & Sanjana C K</div>
+                <div>Real-time Performance Monitoring</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2>🚀 Simulation Controls</h2>
+            <div class="controls">
+                <button id="startBtn" class="btn btn-success">▶️ Start Simulation</button>
+                <button id="pauseBtn" class="btn btn-warning" disabled>⏸️ Pause</button>
+                <button id="stopBtn" class="btn btn-danger" disabled>⏹️ Stop</button>
+                
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1">
+                    <span id="speedValue">1.0x</span>
+                </div>
+                
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot status-stopped"></div>
+                    <span id="statusText">Simulation Stopped</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div id="hitRate" class="metric-value">0.00%</div>
+                <div class="metric-label">Cache Hit Rate</div>
+            </div>
+            <div class="metric-card">
+                <div id="totalRequests" class="metric-value">0</div>
+                <div class="metric-label">Total Requests</div>
+            </div>
+            <div class="metric-card">
+                <div id="cacheHits" class="metric-value">0</div>
+                <div class="metric-label">Cache Hits</div>
+            </div>
+            <div class="metric-card">
+                <div id="cacheMisses" class="metric-value">0</div>
+                <div class="metric-label">Cache Misses</div>
+            </div>
+            <div class="metric-card">
+                <div id="cacheUtilization" class="metric-value">0%</div>
+                <div class="metric-label">Cache Utilization</div>
+            </div>
+            <div class="metric-card">
+                <div id="contentDelivered" class="metric-value">0 MB</div>
+                <div class="metric-label">Content Delivered</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Performance Chart -->
+            <div class="dashboard-card">
+                <h3>📈 Performance Trends</h3>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Request Feed -->
+            <div class="dashboard-card">
+                <h3>📡 Live Request Feed</h3>
+                <div id="liveFeed" class="live-feed">
+                    <div style="text-align: center; opacity: 0.6; padding: 20px;">
+                        Waiting for simulation to start...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cache Visualization -->
+            <div class="dashboard-card">
+                <h3>💾 Cache Status</h3>
+                <div id="cacheVisualization" class="cache-visualization">
+                    <div style="text-align: center; opacity: 0.6; padding: 20px;">
+                        Cache empty
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Type Analysis -->
+            <div class="dashboard-card">
+                <h3>📊 Content Type Performance</h3>
+                <div id="contentTypeStats" class="content-type-stats">
+                    <div style="text-align: center; opacity: 0.6; padding: 20px;">
+                        No data available
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Activity -->
+        <div class="dashboard-card">
+            <h3>👥 User Activity</h3>
+            <div id="userActivity" class="user-activity">
+                <div style="text-align: center; opacity: 0.6; padding: 20px;">
+                    No user activity yet
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let performanceChart;
+        let updateInterval;
+        let isRunning = false;
+
+        // Initialize charts
+        function initializeCharts() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Hit Rate (%)',
+                        data: [],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Cache Utilization (%)',
+                        data: [],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'second'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Percentage (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update metrics
+        function updateMetrics(data) {
+            document.getElementById('hitRate').textContent = data.hit_rate.toFixed(2) + '%';
+            document.getElementById('totalRequests').textContent = data.total_requests;
+            document.getElementById('cacheHits').textContent = data.cache_hits;
+            document.getElementById('cacheMisses').textContent = data.cache_misses;
+            document.getElementById('cacheUtilization').textContent = (data.cache_utilization * 100).toFixed(1) + '%';
+            document.getElementById('contentDelivered').textContent = (data.total_content_delivered / 1024).toFixed(1) + ' MB';
+        }
+
+        // Update live feed
+        function updateLiveFeed(requests) {
+            const feed = document.getElementById('liveFeed');
+            feed.innerHTML = '';
+            
+            requests.slice(-10).reverse().forEach(request => {
+                const item = document.createElement('div');
+                item.className = `feed-item ${request.status.toLowerCase()}`;
+                item.innerHTML = `
+                    <strong>${request.user_id}</strong> requested <strong>${request.content_id}</strong>
+                    <br><small>${request.content_type} • ${request.content_size}MB • ${request.status}</small>
+                `;
+                feed.appendChild(item);
+            });
+        }
+
+        // Update cache visualization
+        function updateCacheVisualization(cacheStatus) {
+            const cache = document.getElementById('cacheVisualization');
+            cache.innerHTML = '';
+            
+            if (cacheStatus.cached_items && cacheStatus.cached_items.length > 0) {
+                cacheStatus.cached_items.forEach(item => {
+                    const cacheItem = document.createElement('div');
+                    cacheItem.className = 'cache-item';
+                    cacheItem.textContent = item;
+                    cache.appendChild(cacheItem);
+                });
+            } else {
+                cache.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">Cache empty</div>';
+            }
+        }
+
+        // Update content type stats
+        function updateContentTypeStats(contentStats) {
+            const stats = document.getElementById('contentTypeStats');
+            stats.innerHTML = '';
+            
+            Object.entries(contentStats).forEach(([type, data]) => {
+                const hitRate = data.requests > 0 ? (data.hits / data.requests * 100).toFixed(1) : 0;
+                const stat = document.createElement('div');
+                stat.className = 'content-stat';
+                stat.innerHTML = `
+                    <div class="content-stat-value">${hitRate}%</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">${type}</div>
+                    <div style="font-size: 0.7rem; opacity: 0.6;">${data.requests} requests</div>
+                `;
+                stats.appendChild(stat);
+            });
+        }
+
+        // Update user activity
+        function updateUserActivity(userActivity) {
+            const activity = document.getElementById('userActivity');
+            activity.innerHTML = '';
+            
+            Object.entries(userActivity).forEach(([userId, data]) => {
+                const hitRate = data.requests > 0 ? (data.hits / data.requests * 100).toFixed(1) : 0;
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <h4>${userId}</h4>
+                    <div class="user-metrics">
+                        <span>Hit Rate: ${hitRate}%</span>
+                        <span>Requests: ${data.requests}</span>
+                    </div>
+                `;
+                activity.appendChild(userCard);
+            });
+        }
+
+        // Update performance chart
+        function updatePerformanceChart(performance) {
+            if (performance.length > 0) {
+                const latest = performance[performance.length - 1];
+                const timestamp = new Date(latest.timestamp * 1000);
+                
+                performanceChart.data.labels.push(timestamp);
+                performanceChart.data.datasets[0].data.push(latest.hit_rate);
+                performanceChart.data.datasets[1].data.push(latest.cache_utilization * 100);
+                
+                // Keep only last 20 points
+                if (performanceChart.data.labels.length > 20) {
+                    performanceChart.data.labels.shift();
+                    performanceChart.data.datasets[0].data.shift();
+                    performanceChart.data.datasets[1].data.shift();
+                }
+                
+                performanceChart.update('none');
+            }
+        }
+
+        // Fetch live data
+        async function fetchLiveData() {
+            try {
+                const response = await fetch('/api/live_data');
+                const data = await response.json();
+                
+                if (data.performance && data.performance.length > 0) {
+                    const latest = data.performance[data.performance.length - 1];
+                    updateMetrics(latest);
+                    updatePerformanceChart(data.performance);
+                }
+                
+                if (data.requests) {
+                    updateLiveFeed(data.requests);
+                }
+                
+                if (data.cache_status) {
+                    updateCacheVisualization(data.cache_status);
+                }
+                
+                if (data.content_stats) {
+                    updateContentTypeStats(data.content_stats);
+                }
+                
+                if (data.user_activity) {
+                    updateUserActivity(data.user_activity);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        }
+
+        // Control functions
+        async function startSimulation() {
+            try {
+                const response = await fetch('/api/start_simulation');
+                const data = await response.json();
+                if (data.status === 'started') {
+                    isRunning = true;
+                    updateControls();
+                    startDataUpdates();
+                }
+            } catch (error) {
+                console.error('Error starting simulation:', error);
+            }
+        }
+
+        async function stopSimulation() {
+            try {
+                const response = await fetch('/api/stop_simulation');
+                const data = await response.json();
+                if (data.status === 'stopped') {
+                    isRunning = false;
+                    updateControls();
+                    stopDataUpdates();
+                }
+            } catch (error) {
+                console.error('Error stopping simulation:', error);
+            }
+        }
+
+        async function pauseSimulation() {
+            try {
+                const response = await fetch('/api/pause_simulation');
+                const data = await response.json();
+                updateStatus(data.status);
+            } catch (error) {
+                console.error('Error pausing simulation:', error);
+            }
+        }
+
+        async function setSpeed(speed) {
+            try {
+                const response = await fetch(`/api/set_speed?speed=${speed}`);
+                const data = await response.json();
+                document.getElementById('speedValue').textContent = speed + 'x';
+            } catch (error) {
+                console.error('Error setting speed:', error);
+            }
+        }
+
+        // Update controls
+        function updateControls() {
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            startBtn.disabled = isRunning;
+            pauseBtn.disabled = !isRunning;
+            stopBtn.disabled = !isRunning;
+            
+            updateStatus(isRunning ? 'Running' : 'Stopped');
+        }
+
+        // Update status
+        function updateStatus(status) {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusDot.className = 'status-dot';
+            if (status === 'Running') {
+                statusDot.classList.add('status-running');
+                statusText.textContent = 'Simulation Running';
+            } else if (status === 'Paused') {
+                statusDot.classList.add('status-paused');
+                statusText.textContent = 'Simulation Paused';
+            } else {
+                statusDot.classList.add('status-stopped');
+                statusText.textContent = 'Simulation Stopped';
+            }
+        }
+
+        // Data update functions
+        function startDataUpdates() {
+            updateInterval = setInterval(fetchLiveData, 1000);
+        }
+
+        function stopDataUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', startSimulation);
+        document.getElementById('stopBtn').addEventListener('click', stopSimulation);
+        document.getElementById('pauseBtn').addEventListener('click', pauseSimulation);
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            const speed = parseFloat(e.target.value);
+            setSpeed(speed);
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            updateControls();
+        });
+    </script>
+</body>
+</html> 
