@@ -22,15 +22,10 @@ Date: 2025
 
 import simpy
 import random
-import csv
-import time
-import pandas as pd
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 # =============================================================================
 # ENTITY DEFINITIONS
@@ -257,9 +252,6 @@ def user_request_process(env: simpy.Environment, satellite: Satellite,
             # Make request to satellite
             log_entry = satellite.request_content(selected_content.content_id, selected_content, user_id)
             
-            # Print request details for monitoring
-            print(f"Time {env.now:.1f}: User {user_id} requested {selected_content.content_id} ({selected_content.content_type}) - {log_entry['status']}")
-            
             # Wait before next request
             yield env.timeout(config.request_interval)
             
@@ -351,164 +343,3 @@ def create_content_catalog(config: SimulationConfig) -> List[Content]:
         content_list = content_list[:config.content_catalog_size]
     
     return content_list
-
-# =============================================================================
-# DATA ANALYSIS AND VISUALIZATION
-# =============================================================================
-
-def analyze_simulation_results(satellite: Satellite, config: SimulationConfig):
-    """
-    Analyze simulation results and generate comprehensive reports.
-    
-    Args:
-        satellite: Satellite instance with simulation data
-        config: Simulation configuration
-    """
-    
-    # Convert logs to pandas DataFrames for analysis
-    request_df = pd.DataFrame(satellite.request_log)
-    performance_df = pd.DataFrame(satellite.performance_log)
-    
-    # Calculate detailed statistics
-    stats = satellite.get_final_statistics()
-    
-    print("\n" + "="*80)
-    print("ORBITAL CDN SIMULATION - COMPREHENSIVE ANALYSIS")
-    print("="*80)
-    print(f"Simulation Duration: {stats['simulation_duration']:.1f} time units")
-    print(f"Total Requests: {stats['total_requests']}")
-    print(f"Cache Hits: {stats['cache_hits']}")
-    print(f"Cache Misses: {stats['cache_misses']}")
-    print(f"Cache Hit Rate: {stats['cache_hit_rate']:.2f}%")
-    print(f"Cache Evictions: {stats['cache_evictions']}")
-    print(f"Total Content Delivered: {stats['total_content_delivered_mb']:.1f} MB")
-    print(f"Average Cache Utilization: {stats['average_cache_utilization']:.2f}")
-    print(f"Final Cache Size: {stats['final_cache_size']}/{config.cache_size}")
-    
-    # Content type analysis
-    if not request_df.empty:
-        print("\n--- Content Type Analysis ---")
-        content_type_stats = request_df.groupby('content_type').agg({
-            'status': ['count', lambda x: (x == 'Hit').sum()],
-            'content_size': 'sum'
-        }).round(2)
-        content_type_stats.columns = ['Total Requests', 'Hits', 'Total Size (MB)']
-        content_type_stats['Hit Rate (%)'] = (content_type_stats['Hits'] / content_type_stats['Total Requests'] * 100).round(2)
-        print(content_type_stats)
-    
-    print("\n--- Cached Content ---")
-    print(f"Currently cached: {', '.join(stats['cached_content'])}")
-    print("="*80)
-    
-    return request_df, performance_df, stats
-
-def save_simulation_data(satellite: Satellite, config: SimulationConfig):
-    """
-    Save simulation data to CSV files for further analysis.
-    
-    Args:
-        satellite: Satellite instance with simulation data
-        config: Simulation configuration
-    """
-    
-    # Save detailed request log
-    request_filename = f'satellite_cdn_requests_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    with open(request_filename, 'w', newline='', encoding='utf-8') as csvfile:
-        if satellite.request_log:
-            fieldnames = satellite.request_log[0].keys()
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for log_entry in satellite.request_log:
-                writer.writerow(log_entry)
-    
-    # Save performance log
-    performance_filename = f'satellite_cdn_performance_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-    with open(performance_filename, 'w', newline='', encoding='utf-8') as csvfile:
-        if satellite.performance_log:
-            fieldnames = satellite.performance_log[0].keys()
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for log_entry in satellite.performance_log:
-                writer.writerow(log_entry)
-    
-    print(f"\nSimulation data saved:")
-    print(f"- Request log: {request_filename}")
-    print(f"- Performance log: {performance_filename}")
-
-# =============================================================================
-# MAIN SIMULATION EXECUTION
-# =============================================================================
-
-def main():
-    """
-    Main simulation function that orchestrates the entire satellite CDN simulation.
-    """
-    print("="*80)
-    print("ORBITAL CDN - SATELLITE CONTENT DELIVERY NETWORK SIMULATION")
-    print("="*80)
-    print("Team Members:")
-    print("1. Neha (U25UV23T064063)")
-    print("2. Sanjana C K (U25UV22T064049)")
-    print("="*80)
-    
-    # Simulation configuration
-    config = SimulationConfig(
-        simulation_duration=200.0,
-        request_interval=3.0,
-        cache_size=12,
-        content_catalog_size=20,
-        user_count=4,
-        log_interval=10.0
-    )
-    
-    print(f"Simulation Configuration:")
-    print(f"- Duration: {config.simulation_duration} time units")
-    print(f"- Request Interval: {config.request_interval} time units")
-    print(f"- Cache Size: {config.cache_size} items")
-    print(f"- Content Catalog: {config.content_catalog_size} items")
-    print(f"- Users: {config.user_count}")
-    print(f"- Performance Logging: Every {config.log_interval} time units")
-    print("="*80)
-    
-    # Create SimPy environment
-    env = simpy.Environment()
-    
-    # Create content catalog
-    content_catalog = create_content_catalog(config)
-    print(f"Created content catalog with {len(content_catalog)} items")
-    
-    # Create satellite with LRU cache
-    satellite = Satellite(env, config)
-    print(f"Initialized satellite with {config.cache_size}-item LRU cache")
-    
-    # Start user request processes
-    for i in range(config.user_count):
-        user_id = f"User_{i+1}"
-        env.process(user_request_process(env, satellite, content_catalog, user_id, config))
-        print(f"Started {user_id} process")
-    
-    # Start performance monitoring
-    env.process(performance_monitor_process(env, satellite, config))
-    print("Started performance monitoring process")
-    
-    # Run simulation
-    print(f"\nRunning simulation for {config.simulation_duration} time units...")
-    print("="*80)
-    start_time = time.time()
-    env.run(until=config.simulation_duration)
-    end_time = time.time()
-    
-    # Calculate and display results
-    print(f"\nSimulation completed in {end_time - start_time:.2f} seconds")
-    
-    # Analyze results
-    request_df, performance_df, stats = analyze_simulation_results(satellite, config)
-    
-    # Save data
-    save_simulation_data(satellite, config)
-    
-    print("\nSimulation completed successfully!")
-    print("="*80)
-
-if __name__ == "__main__":
-    main() 

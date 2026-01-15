@@ -16,10 +16,14 @@ from enhanced_satellite_cdn import Satellite, SimulationConfig, create_content_c
 import simpy
 import threading
 import time
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///orbital_cdn.db'
+# Ensure instance folder exists
+instance_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance')
+os.makedirs(instance_path, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "orbital_cdn.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -63,6 +67,48 @@ class ContentRequest(db.Model):
     delivery_source = db.Column(db.String(50), nullable=False)
     cache_utilization = db.Column(db.Float, nullable=False)
     hit_rate = db.Column(db.Float, nullable=False)
+
+class UserMessage(db.Model):
+    """User-to-user messaging system"""
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    content_id = db.Column(db.String(100))  # Optional: link to shared content
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read = db.Column(db.Boolean, default=False)
+    
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_messages')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_messages')
+
+class SharedContent(db.Model):
+    """Content sharing between users"""
+    id = db.Column(db.Integer, primary_key=True)
+    sharer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content_id = db.Column(db.String(100), nullable=False)
+    content_type = db.Column(db.String(50), nullable=False)
+    content_size = db.Column(db.Integer, nullable=False)
+    shared_at = db.Column(db.DateTime, default=datetime.utcnow)
+    accessed = db.Column(db.Boolean, default=False)
+    
+    sharer = db.relationship('User', foreign_keys=[sharer_id], backref='shared_contents')
+    receiver_rel = db.relationship('User', foreign_keys=[receiver_id], backref='received_contents')
+
+class SatelliteNode(db.Model):
+    """Multi-satellite constellation support"""
+    id = db.Column(db.Integer, primary_key=True)
+    satellite_id = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    altitude = db.Column(db.Float, nullable=False)  # km
+    cache_size = db.Column(db.Integer, nullable=False)
+    cache_utilization = db.Column(db.Float, default=0.0)
+    hit_rate = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='active')  # active, inactive, maintenance
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_update = db.Column(db.DateTime, default=datetime.utcnow)
 # Add this filter for JSON parsing in templates
 @app.template_filter('from_json')
 def from_json_filter(value):
@@ -83,6 +129,7 @@ simulation_state = {
     'running': False,
     'current_session': None,
     'satellite': None,
+    'constellation': None,  # Multi-satellite constellation
     'env': None,
     'config': None
 }
@@ -303,7 +350,8 @@ def user_dashboard():
     # Get user's simulation sessions
     sessions = SimulationSession.query.filter_by(user_id=current_user.id).order_by(SimulationSession.created_at.desc()).limit(5).all()
     
-    return render_template('user_dashboard.html', sessions=sessions)
+    # Use enhanced dashboard for better user experience
+    return render_template('user_dashboard_enhanced.html', sessions=sessions)
 
 @app.route('/admin_dashboard')
 @login_required
@@ -451,8 +499,15 @@ def generate_charts(request_df, performance_df, stats):
     """Generate base64 encoded charts for dashboard display"""
     charts = {}
     
-    # Set style
-    plt.style.use('seaborn-v0_8')
+    # Set style - use available style
+    try:
+        plt.style.use('seaborn-v0_8')
+    except OSError:
+        try:
+            plt.style.use('seaborn')
+        except OSError:
+            plt.style.use('default')
+            sns.set_style("whitegrid")
     
     # 1. Cache Hit Rate Over Time
     if not performance_df.empty:
@@ -565,66 +620,445 @@ def admin_monitoring_api():
 @app.route('/api/request_content', methods=['POST'])
 @login_required
 def api_request_content():
-    """Handle a single user content request and return immediate result details."""
+    """Handle realistic NTN content request with proper algorithmic flow."""
     try:
         payload = request.get_json(silent=True) or {}
-        content_type = (payload.get('content_type') or request.form.get('content_type') or 'document').strip()
-        size = int((payload.get('size') or request.form.get('size') or 10))
-        speed = float((payload.get('speed') or request.form.get('speed') or 1.0))
-        content_id = (payload.get('content_id') or request.form.get('content_id') or f'{content_type}_{size}mb')
-
-        # Ensure runtime satellite
-        satellite = ensure_runtime_satellite()
-        env = simulation_state['env']
-
-        # Build a minimal content surrogate compatible with Satellite
-        from enhanced_satellite_cdn import Content
-        content = Content(content_id=content_id, size=size, content_type=content_type, popularity=0.5)
-
-        # Advance env a tiny step to simulate timing; speed influences perceived delivery_time
-        # Perform the request
-        log_entry = satellite.request_content(content_id, content, user_id=str(current_user.id))
-        # Simulated delivery time: faster for hits, slower for misses, scaled by speed
-        base_time = 0.3 if log_entry['status'] == 'Hit' else 1.2
-        delivery_time = max(0.05, base_time / max(0.1, speed))
-
-        # Persist request row linked to an ad-hoc session (optional: current_session if any)
+        content_id = payload.get('content_id', '').strip()
+        
+        if not content_id:
+            return jsonify({
+                'connected': False,
+                'error': 'Content ID is required',
+                'content_delivered': False
+            }), 400
+        
+        # Initialize NTN simulation if not exists
+        if 'ntn_sim' not in simulation_state:
+            from ntn_network_simulation import NTNSimulation
+            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12)
+        
+        ntn_sim = simulation_state['ntn_sim']
+        
+        # Simulate realistic content request
+        result = ntn_sim.simulate_request(content_id, str(current_user.id))
+        
+        if result['status'] == 'ERROR':
+            return jsonify({
+                'connected': True,
+                'satellite_connected': True,
+                'status': 'ERROR',
+                'error': result.get('error', 'Unknown error'),
+                'content_delivered': False,
+                'steps': result.get('steps', [])
+            }), 400
+        
+        # Get content details
+        content = result.get('content')
+        if not content:
+            return jsonify({
+                'connected': True,
+                'error': 'Content not found',
+                'content_delivered': False
+            }), 404
+        
+        # Get statistics
+        stats = ntn_sim.get_statistics()
+        
+        # Persist to database
         session_id = simulation_state.get('current_session')
         db.session.add(ContentRequest(
             session_id=session_id or 0,
-            timestamp=float(log_entry.get('timestamp', 0.0)),
+            timestamp=float(result.get('timestamp', 0.0)),
             user_id=str(current_user.id),
             content_id=content_id,
-            content_type=content_type,
-            content_size=size,
-            status=log_entry['status'],
-            delivery_source=log_entry['delivery_source'],
-            cache_utilization=float(log_entry.get('cache_utilization', 0.0)),
-            hit_rate=float(log_entry.get('hit_rate', 0.0))
+            content_type=content.content_type,
+            content_size=content.size_mb,
+            status=result['status'],
+            delivery_source=result['source'],
+            cache_utilization=stats['cache_utilization'],
+            hit_rate=stats['cache_hit_rate']
         ))
         db.session.commit()
-
-        return jsonify({
+        
+        # Return realistic response with all details
+        response_data = {
             'connected': True,
             'satellite': 'LEO-1',
-            'status': log_entry['status'],
-            'delivery_source': log_entry['delivery_source'],
-            'cache_utilization': log_entry.get('cache_utilization', 0.0),
-            'hit_rate': log_entry.get('hit_rate', 0.0),
-            'delivery_time': delivery_time,
-            'request': {
-                'content_id': content_id,
-                'content_type': content_type,
-                'size': size,
-                'speed': speed
+            'satellite_connected': True,
+            'status': result['status'],
+            'delivery_source': result['source'],
+            'delivery_time': result.get('delivery_time', result.get('total_time', 0)),
+            'cache_utilization': stats['cache_utilization'],
+            'hit_rate': stats['cache_hit_rate'],
+            'content_delivered': True,
+            'content_received': {
+                'content_id': content.content_id,
+                'title': content.title,
+                'content_type': content.content_type,
+                'size_mb': content.size_mb,
+                'description': content.description,
+                'category': content.category,
+                'received_at': datetime.utcnow().isoformat()
+            },
+            'steps': result.get('steps', []),
+            'statistics': stats
+        }
+        
+        # Add performance comparison data
+        if 'performance' in result:
+            response_data['performance'] = result['performance']
+        
+        # Add latency information
+        if 'latency_satellite_ms' in result:
+            response_data['latency_satellite_ms'] = result['latency_satellite_ms']
+        if 'latency_ground_ms' in result:
+            response_data['latency_ground_ms'] = result['latency_ground_ms']
+        
+        return jsonify(response_data)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'connected': False,
+            'satellite_connected': False,
+            'error': str(exc),
+            'content_delivered': False
+        }), 400
+
+@app.route('/api/available_content', methods=['GET'])
+@login_required
+def available_content():
+    """Get list of available content from catalog with filtering"""
+    try:
+        if 'ntn_sim' not in simulation_state:
+            from ntn_network_simulation import NTNSimulation
+            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12)
+        
+        ntn_sim = simulation_state['ntn_sim']
+        content_list = ntn_sim.get_available_content()
+        
+        # Apply filters if provided
+        content_type = request.args.get('type', '')
+        size_filter = request.args.get('size', '')
+        
+        filtered_content = content_list
+        
+        if content_type:
+            filtered_content = [c for c in filtered_content if c['type'] == content_type]
+        
+        if size_filter:
+            if size_filter == '0-10':
+                filtered_content = [c for c in filtered_content if 0 <= c['size_mb'] < 10]
+            elif size_filter == '10-50':
+                filtered_content = [c for c in filtered_content if 10 <= c['size_mb'] < 50]
+            elif size_filter == '50-100':
+                filtered_content = [c for c in filtered_content if 50 <= c['size_mb'] < 100]
+            elif size_filter == '100+':
+                filtered_content = [c for c in filtered_content if c['size_mb'] >= 100]
+        
+        return jsonify({
+            'success': True,
+            'content': filtered_content,
+            'total_items': len(filtered_content),
+            'filters_applied': {
+                'type': content_type,
+                'size': size_filter
             }
         })
-    except Exception as exc:
-        return jsonify({'connected': False, 'error': str(exc)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+# =============================================================================
+# USER INTERACTION APIs - Messaging & Content Sharing
+# =============================================================================
+
+@app.route('/api/send_message', methods=['POST'])
+@login_required
+def send_message():
+    """Send a message to another user"""
+    try:
+        data = request.get_json()
+        receiver_id = data.get('receiver_id')
+        message = data.get('message', '').strip()
+        content_id = data.get('content_id')  # Optional content sharing
+        
+        if not receiver_id or not message:
+            return jsonify({'error': 'Receiver ID and message are required'}), 400
+        
+        receiver = User.query.get(receiver_id)
+        if not receiver:
+            return jsonify({'error': 'Receiver not found'}), 404
+        
+        user_message = UserMessage(
+            sender_id=current_user.id,
+            receiver_id=receiver_id,
+            message=message,
+            content_id=content_id
+        )
+        db.session.add(user_message)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message_id': user_message.id,
+            'created_at': user_message.created_at.isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/get_messages', methods=['GET'])
+@login_required
+def get_messages():
+    """Get user's messages"""
+    try:
+        messages = UserMessage.query.filter(
+            (UserMessage.receiver_id == current_user.id) | 
+            (UserMessage.sender_id == current_user.id)
+        ).order_by(UserMessage.created_at.desc()).limit(50).all()
+        
+        return jsonify({
+            'messages': [{
+                'id': msg.id,
+                'sender_id': msg.sender_id,
+                'sender_username': msg.sender.username,
+                'receiver_id': msg.receiver_id,
+                'receiver_username': msg.receiver.username,
+                'message': msg.message,
+                'content_id': msg.content_id,
+                'created_at': msg.created_at.isoformat(),
+                'read': msg.read,
+                'is_sent': msg.sender_id == current_user.id
+            } for msg in messages]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/share_content', methods=['POST'])
+@login_required
+def share_content():
+    """Share content with another user"""
+    try:
+        data = request.get_json()
+        receiver_id = data.get('receiver_id')
+        content_id = data.get('content_id')
+        content_type = data.get('content_type', 'document')
+        content_size = data.get('content_size', 0)
+        
+        if not receiver_id or not content_id:
+            return jsonify({'error': 'Receiver ID and content ID are required'}), 400
+        
+        receiver = User.query.get(receiver_id)
+        if not receiver:
+            return jsonify({'error': 'Receiver not found'}), 404
+        
+        shared = SharedContent(
+            sharer_id=current_user.id,
+            receiver_id=receiver_id,
+            content_id=content_id,
+            content_type=content_type,
+            content_size=content_size
+        )
+        db.session.add(shared)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'shared_content_id': shared.id
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/get_shared_content', methods=['GET'])
+@login_required
+def get_shared_content():
+    """Get content shared with current user"""
+    try:
+        shared = SharedContent.query.filter_by(
+            receiver_id=current_user.id,
+            accessed=False
+        ).order_by(SharedContent.shared_at.desc()).all()
+        
+        return jsonify({
+            'shared_content': [{
+                'id': s.id,
+                'sharer_username': s.sharer.username,
+                'content_id': s.content_id,
+                'content_type': s.content_type,
+                'content_size': s.content_size,
+                'shared_at': s.shared_at.isoformat()
+            } for s in shared]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/get_users', methods=['GET'])
+@login_required
+def get_users():
+    """Get list of users for messaging/sharing"""
+    try:
+        users = User.query.filter(User.id != current_user.id).all()
+        return jsonify({
+            'users': [{
+                'id': u.id,
+                'username': u.username,
+                'email': u.email,
+                'role': u.role
+            } for u in users]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/satellite_status', methods=['GET'])
+@login_required
+def satellite_status():
+    """Get real-time satellite constellation status with connection info"""
+    try:
+        satellites = SatelliteNode.query.filter_by(status='active').all()
+        satellite = simulation_state.get('satellite')
+        
+        satellite_data = []
+        if satellite:
+            satellite_data.append({
+                'satellite_id': 'LEO-1',
+                'name': 'LEO Satellite 1',
+                'cache_utilization': len(satellite.cache) / satellite.cache_size if satellite.cache_size else 0,
+                'hit_rate': (satellite.cache_hits / satellite.total_requests * 100) if satellite.total_requests else 0,
+                'status': 'active',
+                'cached_items': len(satellite.cache),
+                'cache_size': satellite.cache_size,
+                'total_requests': satellite.total_requests,
+                'latitude': 0.0,
+                'longitude': 0.0,
+                'altitude': 550.0,
+                'connected': True,
+                'signal_strength': 'Strong',
+                'latency_ms': 15
+            })
+        
+        # Try to get constellation data if available
+        constellation = simulation_state.get('constellation')
+        if constellation:
+            stats = constellation.get_constellation_stats()
+            satellite_data = stats.get('satellites', satellite_data)
+        
+        return jsonify({
+            'satellites': satellite_data,
+            'total_satellites': len(satellite_data),
+            'constellation_stats': constellation.get_constellation_stats() if constellation else None,
+            'connection_status': 'connected' if satellite else 'disconnected'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'connection_status': 'error'}), 400
+
+@app.route('/api/satellite_connection', methods=['GET'])
+@login_required
+def satellite_connection():
+    """Check satellite connection status"""
+    try:
+        satellite = simulation_state.get('satellite')
+        if satellite:
+            return jsonify({
+                'connected': True,
+                'satellite_id': 'LEO-1',
+                'status': 'active',
+                'signal_strength': 'Strong',
+                'latency_ms': 15,
+                'altitude_km': 550,
+                'orbital_speed_km_s': 7.5,
+                'connection_quality': 'Excellent'
+            })
+        else:
+            return jsonify({
+                'connected': False,
+                'status': 'disconnected',
+                'message': 'Satellite not initialized'
+            })
+    except Exception as e:
+        return jsonify({'connected': False, 'error': str(e)}), 400
+
+@app.route('/api/constellation_stats', methods=['GET'])
+@login_required
+def constellation_stats():
+    """Get detailed constellation statistics"""
+    try:
+        constellation = simulation_state.get('constellation')
+        if not constellation:
+            return jsonify({'error': 'No constellation available'}), 404
+        
+        stats = constellation.get_constellation_stats()
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/geographic_distribution', methods=['GET'])
+@login_required
+def geographic_distribution():
+    """Get geographic distribution of requests and satellites"""
+    try:
+        constellation = simulation_state.get('constellation')
+        satellite = simulation_state.get('satellite')
+        
+        data = {
+            'satellites': [],
+            'request_distribution': {}
+        }
+        
+        if constellation:
+            stats = constellation.get_constellation_stats()
+            data['satellites'] = stats.get('satellites', [])
+        
+        # Get request distribution by region (simplified)
+        if satellite and satellite.request_log:
+            for entry in satellite.request_log[-100:]:  # Last 100 requests
+                region = 'Global'  # Simplified - could be enhanced with actual geolocation
+                if region not in data['request_distribution']:
+                    data['request_distribution'][region] = 0
+                data['request_distribution'][region] += 1
+        
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
     with app.app_context():
+        # Create all database tables including new models
         db.create_all()
         create_default_admin()
+        
+        # Initialize default satellites if none exist
+        if SatelliteNode.query.count() == 0:
+            default_satellites = [
+                SatelliteNode(
+                    satellite_id='LEO-1',
+                    name='LEO Satellite 1',
+                    latitude=0.0,
+                    longitude=0.0,
+                    altitude=550.0,
+                    cache_size=12,
+                    status='active'
+                ),
+                SatelliteNode(
+                    satellite_id='LEO-2',
+                    name='LEO Satellite 2',
+                    latitude=30.0,
+                    longitude=60.0,
+                    altitude=550.0,
+                    cache_size=12,
+                    status='active'
+                ),
+                SatelliteNode(
+                    satellite_id='LEO-3',
+                    name='LEO Satellite 3',
+                    latitude=-30.0,
+                    longitude=120.0,
+                    altitude=550.0,
+                    cache_size=12,
+                    status='active'
+                )
+            ]
+            for sat in default_satellites:
+                db.session.add(sat)
+            db.session.commit()
+            print("Default satellites initialized")
     
     app.run(debug=True, host='0.0.0.0', port=5000) 
