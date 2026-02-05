@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import pandas as pd
@@ -13,6 +14,9 @@ import seaborn as sns
 import io
 import base64
 from enhanced_satellite_cdn import Satellite, SimulationConfig, create_content_catalog
+from satellite_constellation import SatelliteConstellation, create_leo_constellation, ConstellationSatellite
+from advanced_caching import LRUCache, LFUCache, FIFOCache, AdaptiveCache
+from realtime_collaboration import init_collaboration, register_socketio_handlers
 import simpy
 import threading
 import time
@@ -26,10 +30,17 @@ os.makedirs(instance_path, exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "orbital_cdn.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Initialize SocketIO for real-time collaboration
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Initialize collaboration manager
+collaboration_manager = init_collaboration(socketio)
+register_socketio_handlers(socketio, collaboration_manager)
 
 # Database Models
 class User(UserMixin, db.Model):
@@ -131,7 +142,10 @@ simulation_state = {
     'satellite': None,
     'constellation': None,  # Multi-satellite constellation
     'env': None,
-    'config': None
+    'config': None,
+    'caching_strategy': 'LRU',  # LRU, LFU, FIFO, Adaptive
+    'multi_satellite_enabled': False,
+    'collaboration_enabled': False
 }
 
 def create_default_admin():
@@ -983,7 +997,17 @@ def constellation_stats():
     try:
         constellation = simulation_state.get('constellation')
         if not constellation:
-            return jsonify({'error': 'No constellation available'}), 404
+            return jsonify({
+                'total_satellites': 0,
+                'total_requests': 0,
+                'total_hits': 0,
+                'total_misses': 0,
+                'overall_hit_rate': 0,
+                'inter_satellite_hits': 0,
+                'inter_satellite_hit_rate': 0,
+                'satellites': [],
+                'message': 'Multi-satellite mode not enabled. Enable it from Multi-Satellite tab.'
+            })
         
         stats = constellation.get_constellation_stats()
         return jsonify(stats)
@@ -1018,6 +1042,216 @@ def geographic_distribution():
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+# =============================================================================
+# ADVANCED FEATURES APIs - Multi-Satellite, Advanced Caching, Collaboration
+# =============================================================================
+
+@app.route('/api/enable_multi_satellite', methods=['POST'])
+@login_required
+def enable_multi_satellite():
+    """Enable multi-satellite constellation mode"""
+    try:
+        data = request.get_json() or {}
+        num_satellites = int(data.get('num_satellites', 5))
+        
+        # Create SimPy environment if not exists
+        if simulation_state['env'] is None:
+            simulation_state['env'] = simpy.Environment()
+        
+        # Create configuration
+        if simulation_state['config'] is None:
+            simulation_state['config'] = SimulationConfig()
+        
+        # Create constellation
+        constellation = create_leo_constellation(
+            simulation_state['env'],
+            simulation_state['config'],
+            num_satellites=num_satellites
+        )
+        
+        simulation_state['constellation'] = constellation
+        simulation_state['multi_satellite_enabled'] = True
+        
+        stats = constellation.get_constellation_stats()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Multi-satellite constellation enabled with {num_satellites} satellites',
+            'constellation_stats': stats
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/set_caching_strategy', methods=['POST'])
+@login_required
+def set_caching_strategy():
+    """Set caching strategy (LRU, LFU, FIFO, Adaptive)"""
+    try:
+        data = request.get_json() or {}
+        strategy = data.get('strategy', 'LRU').upper()
+        
+        valid_strategies = ['LRU', 'LFU', 'FIFO', 'ADAPTIVE']
+        if strategy not in valid_strategies:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid strategy. Must be one of: {", ".join(valid_strategies)}'
+            }), 400
+        
+        simulation_state['caching_strategy'] = strategy
+        
+        return jsonify({
+            'success': True,
+            'message': f'Caching strategy set to {strategy}',
+            'strategy': strategy
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/get_caching_strategies', methods=['GET'])
+@login_required
+def get_caching_strategies():
+    """Get available caching strategies and current selection"""
+    return jsonify({
+        'available_strategies': [
+            {'id': 'LRU', 'name': 'Least Recently Used', 'description': 'Evicts least recently accessed items'},
+            {'id': 'LFU', 'name': 'Least Frequently Used', 'description': 'Evicts least frequently accessed items'},
+            {'id': 'FIFO', 'name': 'First In First Out', 'description': 'Evicts oldest items first'},
+            {'id': 'ADAPTIVE', 'name': 'Adaptive', 'description': 'Automatically switches between strategies based on performance'}
+        ],
+        'current_strategy': simulation_state.get('caching_strategy', 'LRU')
+    })
+
+@app.route('/api/create_collaboration_session', methods=['POST'])
+@login_required
+def create_collaboration_session():
+    """Create a new real-time collaboration session"""
+    try:
+        data = request.get_json() or {}
+        config = data.get('config', {})
+        
+        session_id = f"collab_{current_user.id}_{int(time.time())}"
+        
+        session_data = collaboration_manager.create_session(
+            session_id=session_id,
+            creator_id=current_user.id,
+            config=config
+        )
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'session_data': session_data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/join_collaboration_session', methods=['POST'])
+@login_required
+def join_collaboration_session():
+    """Join an existing collaboration session"""
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'success': False, 'error': 'Session ID required'}), 400
+        
+        session_data = collaboration_manager.join_session(session_id, current_user.id)
+        
+        if session_data:
+            return jsonify({
+                'success': True,
+                'session_id': session_id,
+                'session_data': session_data
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/collaboration_session/<session_id>', methods=['GET'])
+@login_required
+def get_collaboration_session(session_id):
+    """Get collaboration session details"""
+    try:
+        session_data = collaboration_manager.get_session(session_id)
+        
+        if session_data:
+            return jsonify({
+                'success': True,
+                'session': session_data
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/multi_satellite_request', methods=['POST'])
+@login_required
+def multi_satellite_request():
+    """Make a content request using multi-satellite constellation"""
+    try:
+        if not simulation_state.get('multi_satellite_enabled'):
+            return jsonify({
+                'success': False,
+                'error': 'Multi-satellite mode not enabled. Call /api/enable_multi_satellite first'
+            }), 400
+        
+        data = request.get_json() or {}
+        content_id = data.get('content_id')
+        user_id = str(current_user.id)
+        
+        if not content_id:
+            return jsonify({'success': False, 'error': 'Content ID required'}), 400
+        
+        constellation = simulation_state.get('constellation')
+        if not constellation:
+            return jsonify({'success': False, 'error': 'Constellation not initialized'}), 400
+        
+        # Assign user to a satellite
+        satellite = constellation.assign_user_to_satellite(user_id)
+        
+        # Get content from catalog
+        from realistic_content_catalog import get_content_by_id
+        content_item = get_content_by_id(content_id)
+        
+        if not content_item:
+            return jsonify({'success': False, 'error': 'Content not found'}), 404
+        
+        # Convert ContentItem to Content for simulation
+        from enhanced_satellite_cdn import Content
+        content = Content(
+            content_id=content_item.content_id,
+            size=content_item.size_mb,
+            content_type=content_item.content_type,
+            popularity=content_item.popularity_score
+        )
+        
+        # Make request
+        result = satellite.request_content(content_id, content, user_id)
+        
+        # Broadcast to collaboration session if active
+        user_session_id = collaboration_manager.get_user_session(current_user.id)
+        if user_session_id:
+            collaboration_manager.add_request(user_session_id, result)
+            collaboration_manager.update_cache_state(user_session_id, {
+                'satellite_id': satellite.satellite_id,
+                'cache_size': len(satellite.cache),
+                'cache_capacity': satellite.cache_size,
+                'utilization': len(satellite.cache) / satellite.cache_size if satellite.cache_size > 0 else 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'result': result,
+            'satellite_id': satellite.satellite_id,
+            'constellation_stats': constellation.get_constellation_stats()
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 if __name__ == '__main__':
     with app.app_context():
@@ -1061,4 +1295,5 @@ if __name__ == '__main__':
             db.session.commit()
             print("Default satellites initialized")
     
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    # Run with SocketIO for WebSocket support
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000) 

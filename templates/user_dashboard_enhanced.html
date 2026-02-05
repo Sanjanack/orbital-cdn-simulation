@@ -688,6 +688,16 @@
                         <i class="fas fa-rocket me-2"></i>Simulation
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="multi-satellite-tab" data-bs-toggle="tab" data-bs-target="#multi-satellite" type="button">
+                        <i class="fas fa-satellite-dish me-2"></i>Multi-Satellite
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="help-tab" data-bs-toggle="tab" data-bs-target="#help" type="button">
+                        <i class="fas fa-question-circle me-2"></i>Help & Guide
+                    </button>
+                </li>
             </ul>
 
             <div class="tab-content" id="mainTabContent">
@@ -844,13 +854,80 @@
                 
                 <!-- Network View Tab -->
                 <div class="tab-pane fade" id="network" role="tabpanel">
-                    <div class="card card-custom">
+                    <div class="card card-custom mb-4">
                         <div class="card-header bg-transparent border-0 p-3">
                             <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Satellite Network Topology</h5>
                         </div>
                         <div class="card-body">
+                            <div class="alert alert-info" style="background: rgba(52, 152, 219, 0.2); border-color: var(--secondary-color); color: var(--text-light); margin-bottom: 20px;">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>What is this?</strong> This shows how your device connects to the satellite network. 
+                                The icons represent different parts of the system.
+                            </div>
                             <div class="network-visualization" id="networkVisualization">
                                 <!-- Network nodes will be dynamically added -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card card-custom">
+                        <div class="card-header bg-transparent border-0 p-3">
+                            <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>What Do the Icons Mean?</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div style="background: rgba(52, 152, 219, 0.1); padding: 20px; border-radius: 10px; border: 2px solid var(--secondary-color); text-align: center;">
+                                        <div style="font-size: 3rem; color: var(--secondary-color); margin-bottom: 15px;">
+                                            <i class="fas fa-satellite"></i>
+                                        </div>
+                                        <h6 style="color: var(--secondary-color); margin-bottom: 10px;">Satellite Icon</h6>
+                                        <p style="color: var(--text-light); margin: 0; font-size: 0.9rem;">
+                                            This is the satellite in space. It stores content in its cache (like a temporary storage) 
+                                            and sends it to you when you request something. It's floating in space at about 550 km above Earth.
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <div style="background: rgba(39, 174, 96, 0.1); padding: 20px; border-radius: 10px; border: 2px solid var(--success-color); text-align: center;">
+                                        <div style="font-size: 3rem; color: var(--success-color); margin-bottom: 15px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <h6 style="color: var(--success-color); margin-bottom: 10px;">User Icon</h6>
+                                        <p style="color: var(--text-light); margin: 0; font-size: 0.9rem;">
+                                            This represents you and other users. When you click "Request Content", 
+                                            your device sends a request to the satellite asking for videos, images, or other files.
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <div style="background: rgba(243, 156, 18, 0.1); padding: 20px; border-radius: 10px; border: 2px solid var(--warning-color); text-align: center;">
+                                        <div style="font-size: 3rem; color: var(--warning-color); margin-bottom: 15px;">
+                                            <i class="fas fa-server"></i>
+                                        </div>
+                                        <h6 style="color: var(--warning-color); margin-bottom: 10px;">Ground Station Icon</h6>
+                                        <p style="color: var(--text-light); margin: 0; font-size: 0.9rem;">
+                                            This is a computer on Earth that stores all the content. If the satellite doesn't have 
+                                            what you want in its cache, it asks the ground station to send it. This is slower but has everything.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4" style="background: rgba(52, 152, 219, 0.15); padding: 20px; border-radius: 10px; border: 1px solid rgba(52, 152, 219, 0.3);">
+                                <h6 style="color: var(--secondary-color); margin-bottom: 15px;">
+                                    <i class="fas fa-lightbulb me-2"></i>How It Works:
+                                </h6>
+                                <ol style="color: var(--text-light); margin: 0; padding-left: 20px;">
+                                    <li style="margin-bottom: 10px;">You (User icon) request a video or file</li>
+                                    <li style="margin-bottom: 10px;">Your request goes to the Satellite (Satellite icon)</li>
+                                    <li style="margin-bottom: 10px;">Satellite checks if it has the file in its cache (fast storage)</li>
+                                    <li style="margin-bottom: 10px;">If yes → You get it quickly! (Cache HIT - very fast)</li>
+                                    <li style="margin-bottom: 10px;">If no → Satellite asks Ground Station (Server icon) for the file</li>
+                                    <li>Ground Station sends it to Satellite, then Satellite sends it to you (Cache MISS - slower)</li>
+                                </ol>
                             </div>
                         </div>
                     </div>
@@ -884,28 +961,37 @@
                 
                 <!-- Simulation Tab -->
                 <div class="tab-pane fade" id="simulation" role="tabpanel">
-                    <div class="card card-custom">
+                    <div class="card card-custom mb-4">
                         <div class="card-header bg-transparent border-0 p-3">
-                            <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Run Simulation</h5>
+                            <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Run Time-Based Simulation</h5>
                         </div>
                         <div class="card-body">
+                            <div class="alert alert-info" style="background: rgba(52, 152, 219, 0.2); border-color: var(--secondary-color); color: var(--text-light); margin-bottom: 20px;">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>What is this?</strong> This runs a simulation where multiple users request content over time. 
+                                Results will appear in the Analytics tab after completion.
+                            </div>
                             <form id="simulationForm">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Duration (time units)</label>
                                         <input type="number" class="form-control form-control-custom" name="simulation_duration" value="200" min="50" max="1000" required>
+                                        <small class="text-muted">How long the simulation runs</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Request Interval</label>
                                         <input type="number" class="form-control form-control-custom" name="request_interval" value="3" min="1" max="20" step="0.5" required>
+                                        <small class="text-muted">Time between requests</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Cache Size</label>
                                         <input type="number" class="form-control form-control-custom" name="cache_size" value="12" min="5" max="50" required>
+                                        <small class="text-muted">Maximum items in cache</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">User Count</label>
                                         <input type="number" class="form-control form-control-custom" name="user_count" value="4" min="1" max="20" required>
+                                        <small class="text-muted">Number of simulated users</small>
                                     </div>
                                 </div>
                                 <div class="mt-4 text-center">
@@ -914,6 +1000,253 @@
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Multi-Satellite Tab -->
+                <div class="tab-pane fade" id="multi-satellite" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card card-custom mb-4">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-satellite-dish me-2"></i>Multi-Satellite Constellation</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-success" style="background: rgba(39, 174, 96, 0.2); border-color: var(--success-color); color: var(--text-light); margin-bottom: 20px;">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Feature Enabled!</strong> Multi-satellite constellation allows satellites to share content with each other, 
+                                        improving cache hit rates by 10-20%.
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label class="form-label">Number of Satellites</label>
+                                        <select class="form-control form-control-custom" id="numSatellites">
+                                            <option value="3">3 Satellites</option>
+                                            <option value="5" selected>5 Satellites (Recommended)</option>
+                                            <option value="7">7 Satellites</option>
+                                            <option value="10">10 Satellites</option>
+                                        </select>
+                                        <small class="text-muted">More satellites = better coverage but higher complexity</small>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <button class="btn btn-primary btn-animated" onclick="enableMultiSatellite()">
+                                            <i class="fas fa-satellite me-2"></i>Enable Multi-Satellite Mode
+                                        </button>
+                                        <button class="btn btn-outline-info ms-2" onclick="loadConstellationStats()">
+                                            <i class="fas fa-sync me-2"></i>Refresh Stats
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="constellationStatus" style="min-height: 100px;">
+                                        <p class="text-muted">Click "Enable Multi-Satellite Mode" to activate constellation</p>
+                                    </div>
+                                    
+                                    <div id="constellationVisualization" class="mt-4" style="min-height: 300px;">
+                                        <!-- Constellation visualization will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card card-custom">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-network-wired me-2"></i>How Multi-Satellite Works</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="delivery-status">
+                                        <div class="delivery-step completed" style="background: rgba(39, 174, 96, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <div style="display: flex; align-items: center;">
+                                                <i class="fas fa-check-circle me-3" style="color: var(--success-color); font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong style="color: var(--text-light);">Step 1:</strong> User requests content from assigned satellite
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(39, 174, 96, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <div style="display: flex; align-items: center;">
+                                                <i class="fas fa-check-circle me-3" style="color: var(--success-color); font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong style="color: var(--text-light);">Step 2:</strong> Satellite checks its local cache
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <div style="display: flex; align-items: center;">
+                                                <i class="fas fa-satellite me-3" style="color: var(--secondary-color); font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong style="color: var(--text-light);">Step 3:</strong> If not found, checks neighboring satellites (Inter-Satellite Communication)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(39, 174, 96, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <div style="display: flex; align-items: center;">
+                                                <i class="fas fa-check-circle me-3" style="color: var(--success-color); font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong style="color: var(--text-light);">Step 4:</strong> If found in neighbor, transfers via inter-satellite link
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(231, 76, 60, 0.1); padding: 15px; border-radius: 8px;">
+                                            <div style="display: flex; align-items: center;">
+                                                <i class="fas fa-server me-3" style="color: var(--accent-color); font-size: 1.5rem;"></i>
+                                                <div>
+                                                    <strong style="color: var(--text-light);">Step 5:</strong> Only if not found anywhere, fetches from ground station
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4" style="background: rgba(52, 152, 219, 0.15); padding: 20px; border-radius: 10px; border: 1px solid rgba(52, 152, 219, 0.3);">
+                                        <h6 style="color: var(--secondary-color); margin-bottom: 15px;">
+                                            <i class="fas fa-lightbulb me-2"></i>Benefits:
+                                        </h6>
+                                        <ul style="color: var(--text-light); margin: 0; padding-left: 20px;">
+                                            <li>10-20% improvement in cache hit rates</li>
+                                            <li>Reduced latency through inter-satellite communication</li>
+                                            <li>Better load balancing across satellites</li>
+                                            <li>Improved coverage and redundancy</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card card-custom">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Constellation Statistics</h5>
+                                </div>
+                                <div class="card-body" id="constellationStatsPanel">
+                                    <p class="text-muted text-center">Enable multi-satellite mode to see statistics</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Help & Guide Tab -->
+                <div class="tab-pane fade" id="help" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-custom mb-4">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Quick Start Guide</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="delivery-status">
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <strong style="color: var(--secondary-color);">Step 1:</strong> 
+                                            <span style="color: var(--text-light);">Go to "Content Request" tab</span>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <strong style="color: var(--secondary-color);">Step 2:</strong> 
+                                            <span style="color: var(--text-light);">Select content type and size (optional filters)</span>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <strong style="color: var(--secondary-color);">Step 3:</strong> 
+                                            <span style="color: var(--text-light);">Choose content from dropdown</span>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                            <strong style="color: var(--secondary-color);">Step 4:</strong> 
+                                            <span style="color: var(--text-light);">Click "Request from Satellite CDN"</span>
+                                        </div>
+                                        <div class="delivery-step completed" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px;">
+                                            <strong style="color: var(--secondary-color);">Step 5:</strong> 
+                                            <span style="color: var(--text-light);">View delivery process and results!</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card card-custom">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-star me-2"></i>Key Features</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="color: var(--text-light);">
+                                        <div class="mb-3" style="background: rgba(39, 174, 96, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--success-color);">
+                                            <h6 style="color: var(--success-color); margin-bottom: 5px;">
+                                                <i class="fas fa-check-circle me-2"></i>Advanced Caching
+                                            </h6>
+                                            <p style="margin: 0; font-size: 0.9rem;">LRU, LFU, FIFO, and Adaptive caching strategies</p>
+                                        </div>
+                                        
+                                        <div class="mb-3" style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--secondary-color);">
+                                            <h6 style="color: var(--secondary-color); margin-bottom: 5px;">
+                                                <i class="fas fa-satellite-dish me-2"></i>Multi-Satellite Support
+                                            </h6>
+                                            <p style="margin: 0; font-size: 0.9rem;">Multiple satellites working together with inter-satellite communication</p>
+                                        </div>
+                                        
+                                        <div class="mb-3" style="background: rgba(243, 156, 18, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--warning-color);">
+                                            <h6 style="color: var(--warning-color); margin-bottom: 5px;">
+                                                <i class="fas fa-users me-2"></i>Real-time Collaboration
+                                            </h6>
+                                            <p style="margin: 0; font-size: 0.9rem;">Multi-user sessions with live updates via WebSocket</p>
+                                        </div>
+                                        
+                                        <div style="background: rgba(155, 89, 182, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #9b59b6;">
+                                            <h6 style="color: #9b59b6; margin-bottom: 5px;">
+                                                <i class="fas fa-chart-bar me-2"></i>Comprehensive Analytics
+                                            </h6>
+                                            <p style="margin: 0; font-size: 0.9rem;">Real-time performance metrics and visualizations</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card card-custom mb-4">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Understanding Cache Hit/Miss</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="color: var(--text-light);">
+                                        <div class="mb-3" style="background: rgba(39, 174, 96, 0.2); padding: 15px; border-radius: 8px; border: 2px solid var(--success-color);">
+                                            <h6 style="color: var(--success-color); margin-bottom: 10px;">
+                                                <i class="fas fa-check-circle me-2"></i>Cache HIT
+                                            </h6>
+                                            <p style="margin: 0;">Content found in satellite cache. Delivered instantly (~0.15 seconds). Very fast!</p>
+                                        </div>
+                                        
+                                        <div style="background: rgba(231, 76, 60, 0.2); padding: 15px; border-radius: 8px; border: 2px solid var(--accent-color);">
+                                            <h6 style="color: var(--accent-color); margin-bottom: 10px;">
+                                                <i class="fas fa-times-circle me-2"></i>Cache MISS
+                                            </h6>
+                                            <p style="margin: 0;">Content not in cache. Fetched from ground station (~1.5+ seconds). Slower, but next request will be faster!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card card-custom">
+                                <div class="card-header bg-transparent border-0 p-3">
+                                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Tips & Best Practices</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="color: var(--text-light);">
+                                        <p><strong>For Better Understanding:</strong></p>
+                                        <ul style="margin-bottom: 20px;">
+                                            <li>Request the same content twice to see cache HIT (much faster!)</li>
+                                            <li>Try different content types to see variety in delivery</li>
+                                            <li>Enable multi-satellite mode to see advanced features</li>
+                                            <li>Check Analytics tab for performance metrics</li>
+                                            <li>Use Messages feature to communicate with other users</li>
+                                        </ul>
+                                        
+                                        <p><strong>Key Features to Explore:</strong></p>
+                                        <ul>
+                                            <li>Realistic network latency calculations</li>
+                                            <li>Step-by-step delivery visualization</li>
+                                            <li>Multiple caching strategies (LRU, LFU, FIFO, Adaptive)</li>
+                                            <li>Inter-satellite communication</li>
+                                            <li>Real-time performance tracking</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -941,11 +1274,16 @@
                             </div>
                             <div class="mt-3">
                                 <div class="input-group">
-                                    <input type="text" class="form-control form-control-custom" id="messageInput" placeholder="Type a message...">
-                                    <button class="btn btn-primary" onclick="sendMessage()">
-                                        <i class="fas fa-paper-plane"></i>
+                                    <input type="text" class="form-control form-control-custom" id="messageInput" 
+                                           placeholder="Type a message and press Enter..." 
+                                           style="color: var(--text-light);">
+                                    <button class="btn btn-primary" onclick="sendMessage()" id="sendMessageBtn">
+                                        <i class="fas fa-paper-plane"></i> Send
                                     </button>
                                 </div>
+                                <small class="text-muted" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px; display: block;">
+                                    <i class="fas fa-info-circle me-1"></i>Select a user from the left, then type and send messages
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -1024,13 +1362,27 @@
                     if (data.content.length === 0) {
                         selector.innerHTML = '<option value="">No content found with selected filters</option>';
                     } else {
-                        data.content.forEach(item => {
-                            const option = document.createElement('option');
-                            option.value = item.content_id;
-                            option.textContent = `${item.title} (${item.type}, ${item.size_mb} MB)`;
-                            option.dataset.content = JSON.stringify(item);
-                            selector.appendChild(option);
+                        // Filter out unavailable content
+                        const availableContent = data.content.filter(item => {
+                            // Remove items marked as unavailable or with invalid data
+                            return item.content_id && 
+                                   item.title && 
+                                   item.title.toLowerCase().indexOf('unavailable') === -1 &&
+                                   item.size_mb > 0 &&
+                                   item.content_id !== 'unavailable';
                         });
+                        
+                        if (availableContent.length === 0) {
+                            selector.innerHTML = '<option value="">No available content found</option>';
+                        } else {
+                            availableContent.forEach(item => {
+                                const option = document.createElement('option');
+                                option.value = item.content_id;
+                                option.textContent = `${item.title} (${item.type}, ${item.size_mb} MB)`;
+                                option.dataset.content = JSON.stringify(item);
+                                selector.appendChild(option);
+                            });
+                        }
                     }
                     
                     // Enable selector change handler
@@ -1427,16 +1779,37 @@
                     (m.receiver_id === userId && m.sender_id === currentUserId)
                 );
                 
-                userMessages.forEach(msg => {
-                    const bubble = document.createElement('div');
-                    bubble.className = `message-bubble ${msg.is_sent ? 'message-sent' : 'message-received'}`;
-                    bubble.textContent = msg.message;
-                    container.appendChild(bubble);
-                });
+                if (userMessages.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center" style="color: var(--text-muted); padding: 20px;">No messages yet. Start the conversation!</p>';
+                } else {
+                    // Sort by created_at (oldest first)
+                    userMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    
+                    userMessages.forEach(msg => {
+                        const bubble = document.createElement('div');
+                        bubble.className = `message-bubble ${msg.is_sent ? 'message-sent' : 'message-received'}`;
+                        
+                        const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        const senderName = msg.is_sent ? 'You' : msg.sender_username || 'User';
+                        
+                        bubble.innerHTML = `
+                            <div style="font-weight: 600; margin-bottom: 5px; font-size: 0.85rem;">
+                                ${senderName}
+                            </div>
+                            <div style="margin-bottom: 3px;">${msg.message}</div>
+                            <div style="font-size: 0.75rem; opacity: 0.7; text-align: right;">
+                                ${time}
+                            </div>
+                        `;
+                        container.appendChild(bubble);
+                    });
+                }
                 
                 container.scrollTop = container.scrollHeight;
             } catch (error) {
                 console.error('Error loading messages:', error);
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '<p class="text-danger text-center">Error loading messages. Please try again.</p>';
             }
         }
         
@@ -1445,7 +1818,12 @@
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
             
-            if (!message || !selectedUserId) {
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            if (!selectedUserId) {
                 alert('Please select a user first');
                 return;
             }
@@ -1455,7 +1833,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        receiver_id: receiverId,
+                        receiver_id: selectedUserId,
                         message: message
                     })
                 });
@@ -1463,10 +1841,32 @@
                 const data = await response.json();
                 if (data.success) {
                     input.value = '';
-                    loadMessages(receiverId);
+                    // Reload messages to show the new one
+                    loadMessages(selectedUserId);
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to send message'));
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
+                alert('Error sending message: ' + error.message);
+            }
+        }
+        
+        // Allow Enter key to send message (set up after DOM loads)
+        function setupMessageInput() {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                // Remove existing listeners
+                const newInput = messageInput.cloneNode(true);
+                messageInput.parentNode.replaceChild(newInput, messageInput);
+                
+                // Add Enter key listener
+                document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
             }
         }
         
@@ -1485,6 +1885,295 @@
             document.getElementById('loadingOverlay').style.display = 'none';
         }
         
+        // Multi-Satellite Functions
+        async function enableMultiSatellite() {
+            const numSatellites = parseInt(document.getElementById('numSatellites').value);
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/enable_multi_satellite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ num_satellites: numSatellites })
+                });
+                
+                const data = await response.json();
+                hideLoading();
+                
+                if (data.success) {
+                    document.getElementById('constellationStatus').innerHTML = `
+                        <div style="background: rgba(39, 174, 96, 0.2); border: 2px solid var(--success-color); border-radius: 10px; padding: 15px;">
+                            <h6 style="color: var(--success-color); margin-bottom: 10px;">
+                                <i class="fas fa-check-circle me-2"></i>Multi-Satellite Mode Enabled!
+                            </h6>
+                            <p style="color: var(--text-light); margin: 0;">
+                                ${numSatellites} satellites are now active in the constellation.
+                            </p>
+                        </div>
+                    `;
+                    loadConstellationStats();
+                    visualizeConstellation(data.constellation_stats);
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to enable multi-satellite mode'));
+                }
+            } catch (error) {
+                hideLoading();
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function loadConstellationStats() {
+            try {
+                const response = await fetch('/api/constellation_stats');
+                const data = await response.json();
+                
+                if (data.total_satellites > 0) {
+                    document.getElementById('constellationStatsPanel').innerHTML = `
+                        <div style="color: var(--text-light);">
+                            <div class="mb-3">
+                                <strong>Total Satellites:</strong> ${data.total_satellites}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Total Requests:</strong> ${data.total_requests}
+                            </div>
+                            <div class="mb-3">
+                                <strong>Overall Hit Rate:</strong> ${data.overall_hit_rate.toFixed(1)}%
+                            </div>
+                            <div class="mb-3">
+                                <strong>Inter-Satellite Hits:</strong> ${data.inter_satellite_hits}
+                            </div>
+                            <div>
+                                <strong>Inter-Satellite Hit Rate:</strong> ${data.inter_satellite_hit_rate.toFixed(1)}%
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading constellation stats:', error);
+            }
+        }
+        
+        function visualizeConstellation(stats) {
+            const container = document.getElementById('constellationVisualization');
+            if (!stats || !stats.satellites) return;
+            
+            container.innerHTML = `
+                <div style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px;">
+                    <h6 style="color: var(--text-light); margin-bottom: 15px;">Satellite Positions:</h6>
+                    <div class="row">
+                        ${stats.satellites.map(sat => `
+                            <div class="col-md-6 mb-3">
+                                <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.3);">
+                                    <h6 style="color: var(--secondary-color); margin-bottom: 10px;">
+                                        <i class="fas fa-satellite me-2"></i>${sat.id}
+                                    </h6>
+                                    <div style="color: var(--text-light); font-size: 0.9rem;">
+                                        <p style="margin: 3px 0;"><strong>Position:</strong> Lat ${sat.position.latitude.toFixed(1)}°, Lon ${sat.position.longitude.toFixed(1)}°</p>
+                                        <p style="margin: 3px 0;"><strong>Altitude:</strong> ${sat.position.altitude.toFixed(0)} km</p>
+                                        <p style="margin: 3px 0;"><strong>Hit Rate:</strong> ${sat.hit_rate.toFixed(1)}%</p>
+                                        <p style="margin: 3px 0;"><strong>Requests:</strong> ${sat.total_requests}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Handle simulation form
+        document.getElementById('simulationForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const config = {};
+            for (let [key, value] of formData.entries()) {
+                config[key] = value;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/start_simulation', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                hideLoading();
+                
+                if (data.success) {
+                    alert('Simulation started! Check Analytics tab for results after completion.');
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to start simulation'));
+                }
+            } catch (error) {
+                hideLoading();
+                alert('Error: ' + error.message);
+            }
+        });
+        
+        // Initialize analytics charts
+        let performanceChart = null;
+        let contentChart = null;
+        
+        async function initializeAnalyticsCharts() {
+            try {
+                // Get simulation results or use default data
+                const response = await fetch('/simulation_results');
+                let data;
+                
+                if (response.ok) {
+                    data = await response.json();
+                } else {
+                    // Use default/empty data if no simulation results
+                    data = {
+                        statistics: {
+                            hit_rate: 0,
+                            cache_utilization: 0,
+                            total_requests: 0
+                        },
+                        charts: {}
+                    };
+                }
+                
+                // Initialize Performance Chart
+                const perfCtx = document.getElementById('performanceChart');
+                if (perfCtx && typeof Chart !== 'undefined') {
+                    const perfCanvas = perfCtx.getContext('2d');
+                    
+                    // Get performance data from simulation or create sample
+                    let hitRateData = [];
+                    let cacheUtilData = [];
+                    let labels = [];
+                    
+                    if (data.statistics && data.statistics.hit_rate !== undefined) {
+                        // Use actual data if available
+                        hitRateData = [data.statistics.hit_rate || 0];
+                        cacheUtilData = [(data.statistics.cache_utilization || 0) * 100];
+                        labels = ['Current'];
+                    } else {
+                        // Sample data for demonstration
+                        for (let i = 0; i < 10; i++) {
+                            labels.push(`T${i + 1}`);
+                            hitRateData.push(Math.random() * 30 + 40); // 40-70%
+                            cacheUtilData.push(Math.random() * 40 + 30); // 30-70%
+                        }
+                    }
+                    
+                    performanceChart = new Chart(perfCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Hit Rate (%)',
+                                data: hitRateData,
+                                borderColor: '#00d4ff',
+                                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }, {
+                                label: 'Cache Utilization (%)',
+                                data: cacheUtilData,
+                                borderColor: '#00ff88',
+                                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    labels: { color: '#ecf0f1' }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Performance Over Time',
+                                    color: '#ecf0f1'
+                                }
+                            },
+                            scales: {
+                                x: { 
+                                    ticks: { color: '#ecf0f1' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                },
+                                y: { 
+                                    ticks: { color: '#ecf0f1' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                    min: 0,
+                                    max: 100
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Initialize Content Distribution Chart
+                const contentCtx = document.getElementById('contentChart');
+                if (contentCtx && typeof Chart !== 'undefined') {
+                    const contentCanvas = contentCtx.getContext('2d');
+                    
+                    // Sample content distribution data
+                    const contentData = {
+                        labels: ['Video', 'Image', 'Document', 'Audio', 'Other'],
+                        data: [35, 25, 20, 15, 5]
+                    };
+                    
+                    contentChart = new Chart(contentCanvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: contentData.labels,
+                            datasets: [{
+                                data: contentData.data,
+                                backgroundColor: [
+                                    'rgba(52, 152, 219, 0.8)',
+                                    'rgba(39, 174, 96, 0.8)',
+                                    'rgba(243, 156, 18, 0.8)',
+                                    'rgba(155, 89, 182, 0.8)',
+                                    'rgba(231, 76, 60, 0.8)'
+                                ],
+                                borderColor: [
+                                    '#3498db',
+                                    '#27ae60',
+                                    '#f39c12',
+                                    '#9b59b6',
+                                    '#e74c3c'
+                                ],
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: { color: '#ecf0f1' }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Content Type Distribution',
+                                    color: '#ecf0f1'
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error initializing charts:', error);
+                // Show error message in chart containers
+                const perfCtx = document.getElementById('performanceChart');
+                const contentCtx = document.getElementById('contentChart');
+                if (perfCtx) {
+                    perfCtx.parentElement.innerHTML = '<p class="text-muted text-center">No data available. Run a simulation first.</p>';
+                }
+                if (contentCtx) {
+                    contentCtx.parentElement.innerHTML = '<p class="text-muted text-center">No data available. Run a simulation first.</p>';
+                }
+            }
+        }
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initAnimatedBackground();
@@ -1492,6 +2181,8 @@
             loadSatelliteStatus();
             loadUsers();
             loadAvailableContent(); // Load content catalog
+            setupMessageInput(); // Setup message input Enter key
+            initializeAnalyticsCharts(); // Initialize charts
             
             // Update stats periodically
             setInterval(loadSatelliteStatus, 5000);
@@ -1500,6 +2191,25 @@
             setTimeout(() => {
                 loadSatelliteStatus();
             }, 1000);
+            
+            // Setup message input when modal opens
+            const messagesModal = document.getElementById('messagesModal');
+            if (messagesModal) {
+                messagesModal.addEventListener('shown.bs.modal', function() {
+                    setupMessageInput();
+                    loadUsers(); // Refresh users list
+                });
+            }
+            
+            // Reinitialize charts when Analytics tab is shown
+            const analyticsTab = document.querySelector('[data-bs-target="#analytics"]');
+            if (analyticsTab) {
+                analyticsTab.addEventListener('shown.bs.tab', function() {
+                    if (!performanceChart || !contentChart) {
+                        initializeAnalyticsCharts();
+                    }
+                });
+            }
         });
     </script>
 </body>

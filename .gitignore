@@ -222,5 +222,17 @@ __marimo__/
 .DS_Store
 Thumbs.db
 
-# CSV data files (optional - remove if you want to include them)
+# CSV data files (generated simulation data)
 *.csv
+
+# Generated log files
+*.log
+simulation_log.csv
+
+# Database files (keep instance folder structure)
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# Keep instance folder but ignore database files
+!instance/.gitkeep

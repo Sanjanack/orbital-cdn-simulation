@@ -188,17 +188,34 @@
         }
         
         .table-custom td {
-            color: var(--text-light);
+            color: #ffffff !important; /* High contrast white text */
             border-color: rgba(255, 255, 255, 0.1);
             vertical-align: middle;
+            background-color: rgba(255, 255, 255, 0.03) !important;
         }
         
         .table-custom tbody tr {
             transition: all 0.3s ease;
+            background-color: rgba(255, 255, 255, 0.03);
         }
         
         .table-custom tbody tr:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(52, 152, 219, 0.2) !important;
+        }
+        
+        .table-custom tbody tr td {
+            color: #ffffff !important;
+        }
+        
+        /* Ensure all text in tables is visible */
+        .table-custom tbody tr td,
+        .table-custom tbody tr td strong,
+        .table-custom tbody tr td span {
+            color: #ffffff !important;
+        }
+        
+        .table-custom tbody tr td .text-muted {
+            color: #b0b0b0 !important;
         }
         
         .user-role {
