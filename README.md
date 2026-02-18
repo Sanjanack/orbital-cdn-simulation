@@ -279,10 +279,6 @@ CREATE TABLE content_request (
 - **PostgreSQL**: Production-ready database
 - **Microservices**: Scalable architecture design
 
-## 👥 Team
-
-- **Neha** (U25UV23T064063) - Lead Developer & Simulation Engineer
-- **Sanjana C K** (U25UV22T064049) - System Architect & UI/UX Designer
 
 ## 📄 License
 
