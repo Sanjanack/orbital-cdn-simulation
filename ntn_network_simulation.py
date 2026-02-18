@@ -20,6 +20,15 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from realistic_content_catalog import ContentItem, REALISTIC_CONTENT_CATALOG, get_content_by_id
 
+# Optional: advanced caching strategies (LRU/LFU/FIFO/Adaptive)
+try:
+    from advanced_caching import LRUCache as AdvLRUCache, LFUCache, FIFOCache, AdaptiveCache
+except Exception:
+    AdvLRUCache = None
+    LFUCache = None
+    FIFOCache = None
+    AdaptiveCache = None
+
 @dataclass
 class NetworkMetrics:
     """Network performance metrics"""
@@ -96,13 +105,32 @@ class LRUCache:
             'utilization': len(self.cache) / self.capacity * 100 if self.capacity > 0 else 0
         }
 
+def _create_cache(strategy: str, capacity: int):
+    """
+    Create a cache instance for the selected strategy.
+    If advanced caching is unavailable, falls back to the local LRUCache.
+    """
+    normalized = (strategy or "LRU").upper()
+    if AdvLRUCache is None:
+        return LRUCache(capacity)
+    if normalized == "LRU":
+        return AdvLRUCache(capacity)
+    if normalized == "LFU" and LFUCache is not None:
+        return LFUCache(capacity)
+    if normalized == "FIFO" and FIFOCache is not None:
+        return FIFOCache(capacity)
+    if normalized == "ADAPTIVE" and AdaptiveCache is not None:
+        return AdaptiveCache(capacity)
+    return AdvLRUCache(capacity)
+
 class SatelliteNode:
     """Realistic satellite node with proper NTN functionality"""
     
-    def __init__(self, env: simpy.Environment, satellite_id: str, cache_size: int = 12):
+    def __init__(self, env: simpy.Environment, satellite_id: str, cache_size: int = 12, caching_strategy: str = "LRU"):
         self.env = env
         self.satellite_id = satellite_id
-        self.cache = LRUCache(cache_size)
+        self.caching_strategy = (caching_strategy or "LRU").upper()
+        self.cache = _create_cache(self.caching_strategy, cache_size)
         self.network_metrics = NetworkMetrics()
         
         # Statistics
@@ -150,11 +178,25 @@ class SatelliteNode:
         })
         current_time += 0.015  # Satellite processing latency
         
-        # Step 3: Check satellite cache using LRU algorithm
+        # Step 3: Check satellite cache using selected caching strategy
+        try:
+            cache_stats_now = self.cache.get_stats()
+        except Exception:
+            cache_stats_now = {}
+
+        if cache_stats_now.get('adaptive'):
+            strategy_name = 'ADAPTIVE'
+            strategy_current = cache_stats_now.get('current_strategy', cache_stats_now.get('strategy', self.caching_strategy))
+            strategy_label = f'Adaptive (currently {strategy_current})'
+        else:
+            strategy_name = cache_stats_now.get('strategy', self.caching_strategy)
+            strategy_current = None
+            strategy_label = str(strategy_name)
+
         steps.append({
             'time': current_time,
             'action': 'cache_check',
-            'message': 'Checking satellite cache (LRU algorithm)...',
+            'message': f'Checking satellite cache ({strategy_label})...',
             'latency_ms': 1,
             'location': f'Satellite {self.satellite_id} Cache'
         })
@@ -213,6 +255,8 @@ class SatelliteNode:
                 'total_time': current_time - request_start_time,
                 'latency_satellite_ms': 15,
                 'latency_ground_ms': 0,
+                'caching_strategy': strategy_name,
+                'caching_strategy_current': strategy_current,
                 'steps': steps,
                 'performance': {
                     'cache_hit': True,
@@ -307,7 +351,7 @@ class SatelliteNode:
                 steps.append({
                     'time': current_time,
                     'action': 'cache_update',
-                    'message': f'✓ Content cached in satellite (LRU algorithm)',
+                    'message': f'✓ Content cached in satellite ({strategy_label})',
                     'latency_ms': 1,
                     'location': f'Satellite {self.satellite_id} Cache',
                     'cache_info': {
@@ -363,6 +407,8 @@ class SatelliteNode:
                     'total_time': total_time,
                     'latency_satellite_ms': 15,
                     'latency_ground_ms': self.network_metrics.ground_latency_ms,
+                    'caching_strategy': strategy_name,
+                    'caching_strategy_current': strategy_current,
                     'steps': steps,
                     'performance': {
                         'cache_hit': False,
@@ -399,9 +445,10 @@ class SatelliteNode:
 class NTNSimulation:
     """Main NTN simulation controller"""
     
-    def __init__(self, cache_size: int = 12):
+    def __init__(self, cache_size: int = 12, caching_strategy: str = "LRU"):
         self.env = simpy.Environment()
-        self.satellite = SatelliteNode(self.env, "LEO-1", cache_size)
+        self.caching_strategy = (caching_strategy or "LRU").upper()
+        self.satellite = SatelliteNode(self.env, "LEO-1", cache_size, caching_strategy=self.caching_strategy)
         self.content_catalog = REALISTIC_CONTENT_CATALOG
     
     def simulate_request(self, content_id: str, user_id: str) -> Dict:

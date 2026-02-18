@@ -145,7 +145,9 @@ simulation_state = {
     'config': None,
     'caching_strategy': 'LRU',  # LRU, LFU, FIFO, Adaptive
     'multi_satellite_enabled': False,
-    'collaboration_enabled': False
+    'collaboration_enabled': False,
+    # Track which satellite the current user last connected to (useful for multi-satellite UI)
+    'last_connected_satellite_by_user': {}  # { user_id(int): "LEO-1" }
 }
 
 def create_default_admin():
@@ -646,10 +648,19 @@ def api_request_content():
                 'content_delivered': False
             }), 400
         
-        # Initialize NTN simulation if not exists
+        # Initialize NTN simulation if not exists (respect selected caching strategy)
+        selected_strategy = simulation_state.get('caching_strategy', 'LRU')
         if 'ntn_sim' not in simulation_state:
             from ntn_network_simulation import NTNSimulation
-            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12)
+            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12, caching_strategy=selected_strategy)
+        else:
+            # If user changed strategy, refresh the simulator so the cache policy matches
+            try:
+                if getattr(simulation_state['ntn_sim'], 'caching_strategy', None) != str(selected_strategy).upper():
+                    from ntn_network_simulation import NTNSimulation
+                    simulation_state['ntn_sim'] = NTNSimulation(cache_size=12, caching_strategy=selected_strategy)
+            except Exception:
+                pass
         
         ntn_sim = simulation_state['ntn_sim']
         
@@ -694,11 +705,19 @@ def api_request_content():
         ))
         db.session.commit()
         
+        # Pick best strategy display from simulator result (important for ADAPTIVE)
+        result_strategy = result.get('caching_strategy') or selected_strategy
+        result_strategy_current = result.get('caching_strategy_current')
+
         # Return realistic response with all details
         response_data = {
             'connected': True,
             'satellite': 'LEO-1',
             'satellite_connected': True,
+            'satellite_id': 'LEO-1',
+            'multi_satellite': False,
+            'caching_strategy': result_strategy,
+            'caching_strategy_current': result_strategy_current,
             'status': result['status'],
             'delivery_source': result['source'],
             'delivery_time': result.get('delivery_time', result.get('total_time', 0)),
@@ -717,6 +736,12 @@ def api_request_content():
             'steps': result.get('steps', []),
             'statistics': stats
         }
+
+        # Remember which satellite user is connected to (single-satellite mode)
+        try:
+            simulation_state['last_connected_satellite_by_user'][int(current_user.id)] = 'LEO-1'
+        except Exception:
+            pass
         
         # Add performance comparison data
         if 'performance' in result:
@@ -746,7 +771,7 @@ def available_content():
     try:
         if 'ntn_sim' not in simulation_state:
             from ntn_network_simulation import NTNSimulation
-            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12)
+            simulation_state['ntn_sim'] = NTNSimulation(cache_size=12, caching_strategy=simulation_state.get('caching_strategy', 'LRU'))
         
         ntn_sim = simulation_state['ntn_sim']
         content_list = ntn_sim.get_available_content()
@@ -955,11 +980,20 @@ def satellite_status():
             stats = constellation.get_constellation_stats()
             satellite_data = stats.get('satellites', satellite_data)
         
+        connected_satellite_id = None
+        try:
+            connected_satellite_id = simulation_state.get('last_connected_satellite_by_user', {}).get(int(current_user.id))
+        except Exception:
+            connected_satellite_id = None
+
         return jsonify({
             'satellites': satellite_data,
             'total_satellites': len(satellite_data),
             'constellation_stats': constellation.get_constellation_stats() if constellation else None,
-            'connection_status': 'connected' if satellite else 'disconnected'
+            'connection_status': 'connected' if satellite else 'disconnected',
+            'connected_satellite_id': connected_satellite_id,
+            'multi_satellite_enabled': bool(simulation_state.get('multi_satellite_enabled')),
+            'caching_strategy': simulation_state.get('caching_strategy', 'LRU')
         })
     except Exception as e:
         return jsonify({'error': str(e), 'connection_status': 'error'}), 400
@@ -1067,7 +1101,8 @@ def enable_multi_satellite():
         constellation = create_leo_constellation(
             simulation_state['env'],
             simulation_state['config'],
-            num_satellites=num_satellites
+            num_satellites=num_satellites,
+            caching_strategy=simulation_state.get('caching_strategy', 'LRU')
         )
         
         simulation_state['constellation'] = constellation
@@ -1099,6 +1134,23 @@ def set_caching_strategy():
             }), 400
         
         simulation_state['caching_strategy'] = strategy
+
+        # If multi-satellite constellation is enabled, rebuild it so satellites use the new strategy
+        try:
+            if simulation_state.get('multi_satellite_enabled'):
+                num_satellites = len(simulation_state.get('constellation').satellites) if simulation_state.get('constellation') else 5
+                if simulation_state.get('env') is None:
+                    simulation_state['env'] = simpy.Environment()
+                if simulation_state.get('config') is None:
+                    simulation_state['config'] = SimulationConfig()
+                simulation_state['constellation'] = create_leo_constellation(
+                    simulation_state['env'],
+                    simulation_state['config'],
+                    num_satellites=num_satellites,
+                    caching_strategy=strategy
+                )
+        except Exception:
+            pass
         
         return jsonify({
             'success': True,
@@ -1211,6 +1263,10 @@ def multi_satellite_request():
         
         # Assign user to a satellite
         satellite = constellation.assign_user_to_satellite(user_id)
+        try:
+            simulation_state['last_connected_satellite_by_user'][int(current_user.id)] = satellite.satellite_id
+        except Exception:
+            pass
         
         # Get content from catalog
         from realistic_content_catalog import get_content_by_id
@@ -1230,6 +1286,13 @@ def multi_satellite_request():
         
         # Make request
         result = satellite.request_content(content_id, content, user_id)
+
+        # Add a simple delivery time estimate for UI consistency
+        status = str(result.get('status', '')).lower()
+        if 'hit' in status:
+            est_delivery_time = 0.15
+        else:
+            est_delivery_time = 1.50
         
         # Broadcast to collaboration session if active
         user_session_id = collaboration_manager.get_user_session(current_user.id)
@@ -1242,10 +1305,38 @@ def multi_satellite_request():
                 'utilization': len(satellite.cache) / satellite.cache_size if satellite.cache_size > 0 else 0
             })
         
+        # Determine actual strategy used by the satellite (handle ADAPTIVE)
+        strategy_used = simulation_state.get('caching_strategy', 'LRU')
+        strategy_current = None
+        try:
+            cache_stats_now = satellite.cache_policy.get_stats()
+            if cache_stats_now.get('adaptive'):
+                strategy_used = 'ADAPTIVE'
+                strategy_current = cache_stats_now.get('current_strategy', cache_stats_now.get('strategy'))
+            else:
+                strategy_used = cache_stats_now.get('strategy', strategy_used)
+        except Exception:
+            pass
+
         return jsonify({
             'success': True,
-            'result': result,
+            'result': {
+                **result,
+                'delivery_time': est_delivery_time
+            },
             'satellite_id': satellite.satellite_id,
+            'multi_satellite': True,
+            'caching_strategy': strategy_used,
+            'caching_strategy_current': strategy_current,
+            'content_received': {
+                'content_id': content_item.content_id,
+                'title': content_item.title,
+                'content_type': content_item.content_type,
+                'size_mb': content_item.size_mb,
+                'description': content_item.description,
+                'category': content_item.category,
+                'received_at': datetime.utcnow().isoformat()
+            },
             'constellation_stats': constellation.get_constellation_stats()
         })
     except Exception as e:

@@ -760,6 +760,34 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Caching Strategy Selector -->
+                            <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255, 255, 255, 0.12);">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-7">
+                                        <label class="form-label" style="color: var(--text-light); font-weight: 600;">Caching Strategy</label>
+                                        <select class="form-control form-control-custom" id="cachingStrategySelect">
+                                            <option value="LRU" selected>LRU (Least Recently Used)</option>
+                                            <option value="LFU">LFU (Least Frequently Used)</option>
+                                            <option value="FIFO">FIFO (First In First Out)</option>
+                                            <option value="ADAPTIVE">Adaptive (auto-switching)</option>
+                                        </select>
+                                        <small class="text-muted" id="cachingStrategyHelp" style="color: var(--text-muted); display: block; margin-top: 6px;">
+                                            LRU removes the content that was not used for the longest time.
+                                        </small>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <button class="btn btn-outline-info w-100" type="button" onclick="applyCachingStrategy()">
+                                            <i class="fas fa-sliders-h me-2"></i>Apply Strategy
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted" style="color: var(--text-muted);">
+                                        <i class="fas fa-info-circle me-1"></i>This decides what the satellite removes when the cache becomes full. The chosen strategy will be shown in every request result.
+                                    </small>
+                                </div>
+                            </div>
                             
                             <form id="requestForm">
                                 <input type="hidden" id="hiddenContentId" name="content_id">
@@ -1311,33 +1339,76 @@
         function initNetworkVisualization() {
             const network = document.getElementById('networkVisualization');
             if (!network) return;
-            
-            // Add satellite node
-            const satellite = document.createElement('div');
-            satellite.className = 'network-node node-satellite';
-            satellite.style.top = '50%';
-            satellite.style.left = '50%';
-            satellite.innerHTML = '<i class="fas fa-satellite"></i>';
-            network.appendChild(satellite);
-            
-            // Add user nodes
-            for (let i = 0; i < 3; i++) {
+
+            // Default view while stats load
+            drawNetworkTopology({ satellites: 1, users: 3 });
+        }
+
+        function drawNetworkTopology({ satellites, users }) {
+            const network = document.getElementById('networkVisualization');
+            if (!network) return;
+            network.innerHTML = '';
+
+            const satCount = Math.max(1, parseInt(satellites || 1));
+            const userCount = Math.max(1, parseInt(users || 3));
+
+            // Place satellites in a circle
+            for (let i = 0; i < satCount; i++) {
+                const angle = (2 * Math.PI * i) / satCount;
+                const x = 50 + 30 * Math.cos(angle);
+                const y = 42 + 25 * Math.sin(angle);
+                const sat = document.createElement('div');
+                sat.className = 'network-node node-satellite';
+                sat.style.left = `${x}%`;
+                sat.style.top = `${y}%`;
+                sat.innerHTML = `<i class="fas fa-satellite"></i>`;
+                sat.title = `Satellite ${i + 1}`;
+                network.appendChild(sat);
+            }
+
+            // Place users on the left side
+            if (userCount === 1) {
                 const user = document.createElement('div');
                 user.className = 'network-node node-user';
-                user.style.top = (20 + i * 30) + '%';
-                user.style.left = (10 + i * 20) + '%';
+                user.style.left = '12%';
+                user.style.top = '50%';
                 user.innerHTML = '<i class="fas fa-user"></i>';
-                user.style.animationDelay = i * 0.3 + 's';
+                user.title = 'User';
                 network.appendChild(user);
+            } else {
+                for (let i = 0; i < userCount; i++) {
+                    const user = document.createElement('div');
+                    user.className = 'network-node node-user';
+                    user.style.left = `${10 + (i % 2) * 12}%`;
+                    user.style.top = `${20 + (i * (60 / Math.max(1, userCount - 1)))}%`;
+                    user.innerHTML = '<i class="fas fa-user"></i>';
+                    user.style.animationDelay = i * 0.2 + 's';
+                    user.title = `User ${i + 1}`;
+                    network.appendChild(user);
+                }
             }
-            
-            // Add ground station
+
+            // Ground station at bottom center
             const ground = document.createElement('div');
             ground.className = 'network-node node-ground';
-            ground.style.bottom = '10%';
             ground.style.left = '50%';
+            ground.style.top = '86%';
+            ground.style.transform = 'translateX(-50%)';
             ground.innerHTML = '<i class="fas fa-server"></i>';
+            ground.title = 'Ground Station';
             network.appendChild(ground);
+        }
+
+        async function refreshNetworkViewFromConstellation() {
+            try {
+                const res = await fetch('/api/constellation_stats');
+                const data = await res.json();
+                const satCount = data.total_satellites || 1;
+                drawNetworkTopology({ satellites: satCount, users: 3 });
+            } catch (e) {
+                console.error('Error refreshing network view:', e);
+                drawNetworkTopology({ satellites: 1, users: 3 });
+            }
         }
         
         // Load available content with filters
@@ -1432,22 +1503,50 @@
             animateDataTransmission();
             
             try {
-                const response = await fetch('/api/request_content', {
+                // If multi-satellite mode is enabled, use constellation endpoint
+                const useMultiSat = window.multiSatelliteEnabled === true;
+                const endpoint = useMultiSat ? '/api/multi_satellite_request' : '/api/request_content';
+
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content_id: contentId })
                 });
                 
-                const data = await response.json();
+                const raw = await response.json();
                 hideLoading();
                 
+                // Normalize multi-satellite response format to match showRequestResult expectations
+                let data = raw;
+                if (raw && raw.success && raw.result) {
+                    const r = raw.result || {};
+                    data = {
+                        connected: true,
+                        satellite_connected: true,
+                        satellite: raw.satellite_id,
+                        satellite_id: raw.satellite_id,
+                        multi_satellite: true,
+                        caching_strategy: raw.caching_strategy || 'LRU',
+                        status: r.status || 'Miss',
+                        delivery_source: r.delivery_source || r.source || 'Satellite Network',
+                        delivery_time: r.delivery_time || 0,
+                        cache_utilization: r.cache_utilization || 0,
+                        hit_rate: r.hit_rate || 0,
+                        content_delivered: true,
+                        content_received: raw.content_received || null,
+                        steps: r.steps || []
+                    };
+                }
+
                 if (data.connected && data.content_delivered) {
                     showRequestResult(data);
                     updateStats(data);
                     animateContentStream();
-                    showContentDelivery(data.content_received);
+                    if (data.content_received) {
+                        showContentDelivery(data.content_received);
+                    }
                 } else {
-                    alert('Request failed: ' + (data.error || 'unknown error'));
+                    alert('Request failed: ' + (data.error || raw.error || 'unknown error'));
                     if (data.steps) {
                         showRequestResult(data);
                     }
@@ -1518,6 +1617,75 @@
                 packet.style.top = (30 + i * 30) + 'px';
                 packet.style.animationDelay = i * 0.3 + 's';
                 container.appendChild(packet);
+            }
+        }
+
+        // Make caching strategy labels user-friendly
+        function formatCachingStrategy(strategy, currentStrategy) {
+            const s = (strategy || 'LRU').toString().toUpperCase();
+            const map = {
+                'LRU': 'LRU (Least Recently Used)',
+                'LFU': 'LFU (Least Frequently Used)',
+                'FIFO': 'FIFO (First In First Out)',
+                'ADAPTIVE': 'Adaptive (auto-switching)'
+            };
+            if (s === 'ADAPTIVE' && currentStrategy) {
+                return `Adaptive (currently ${currentStrategy})`;
+            }
+            return map[s] || s;
+        }
+
+        function getCachingStrategyExplanation(strategy) {
+            const s = (strategy || 'LRU').toString().toUpperCase();
+            if (s === 'LRU') return 'When used: if you choose LRU. The cache removes the content that was not used for the longest time.';
+            if (s === 'LFU') return 'When used: if you choose LFU. The cache removes the content that was requested the least number of times.';
+            if (s === 'FIFO') return 'When used: if you choose FIFO. The cache removes the oldest added content first.';
+            if (s === 'ADAPTIVE') return 'When used: if you choose Adaptive. It starts with LRU and automatically switches to LFU/FIFO based on hit-rate every ~100 requests.';
+            return 'When used: this strategy is selected.';
+        }
+
+        async function loadCachingStrategies() {
+            try {
+                const res = await fetch('/api/get_caching_strategies');
+                const data = await res.json();
+                const current = (data.current_strategy || 'LRU').toUpperCase();
+                const select = document.getElementById('cachingStrategySelect');
+                if (select) select.value = current;
+                const help = document.getElementById('cachingStrategyHelp');
+                if (help) help.textContent = getCachingStrategyExplanation(current);
+            } catch (e) {
+                console.error('Error loading caching strategies:', e);
+            }
+        }
+
+        async function applyCachingStrategy() {
+            const select = document.getElementById('cachingStrategySelect');
+            if (!select) return;
+            const strategy = select.value;
+            showLoading();
+            try {
+                const res = await fetch('/api/set_caching_strategy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy })
+                });
+                const data = await res.json();
+                hideLoading();
+                if (!data.success) {
+                    alert('Error: ' + (data.error || 'Failed to set strategy'));
+                    return;
+                }
+                const help = document.getElementById('cachingStrategyHelp');
+                if (help) help.textContent = getCachingStrategyExplanation(strategy);
+                loadSatelliteStatus();
+                if (window.multiSatelliteEnabled) {
+                    loadConstellationStats();
+                    refreshNetworkViewFromConstellation();
+                }
+                alert(`Caching strategy applied: ${formatCachingStrategy(strategy)}\n\n${getCachingStrategyExplanation(strategy)}`);
+            } catch (e) {
+                hideLoading();
+                alert('Error: ' + e.message);
             }
         }
         
@@ -1630,7 +1798,9 @@
                     Cache ${data.status === 'HIT' ? 'HIT' : 'MISS'} - Delivered from ${data.delivery_source}
                 </div>
                 <div class="mt-3" style="color: var(--text-light);">
-                    <p><strong>Satellite:</strong> ${data.satellite} ${data.satellite_connected ? '<span style="color: var(--success-color);">✓ Connected</span>' : '<span style="color: var(--accent-color);">✗ Disconnected</span>'}</p>
+                    <p><strong>Connected Satellite:</strong> ${data.satellite_id || data.satellite || 'LEO-1'} <span style="color: var(--success-color);">✓ Connected</span></p>
+                    <p><strong>Mode:</strong> ${data.multi_satellite ? 'Multi-Satellite (constellation)' : 'Single Satellite'}</p>
+                    <p><strong>Caching Strategy:</strong> ${formatCachingStrategy(data.caching_strategy, data.caching_strategy_current)}</p>
                     <p><strong>Delivery Time:</strong> ${data.delivery_time.toFixed(2)}s</p>
                     <p><strong>Cache Utilization:</strong> ${(data.cache_utilization * 100).toFixed(1)}%</p>
                     <p><strong>Hit Rate:</strong> ${data.hit_rate.toFixed(1)}%</p>
@@ -1680,6 +1850,9 @@
                 const response = await fetch('/api/satellite_status');
                 const data = await response.json();
                 
+                // Keep front-end flag in sync with backend state
+                window.multiSatelliteEnabled = !!data.multi_satellite_enabled;
+                
                 // Update connection status
                 const connectionStatus = document.getElementById('connectionStatus');
                 const satelliteIndicator = document.getElementById('satelliteIndicator');
@@ -1688,13 +1861,16 @@
                     const sat = data.satellites[0];
                     
                     // Update connection indicator
-                    connectionStatus.textContent = `Connected to ${sat.satellite_id}`;
+                    const connectedSatId = data.connected_satellite_id || sat.satellite_id;
+                    const modeLabel = data.multi_satellite_enabled ? 'Multi-Satellite' : 'Single Satellite';
+                    const strategyLabel = formatCachingStrategy(data.caching_strategy || 'LRU', data.caching_strategy_current);
+                    connectionStatus.textContent = `Connected to ${connectedSatId} • ${modeLabel} • Cache: ${strategyLabel}`;
                     connectionStatus.style.color = 'var(--success-color)';
                     satelliteIndicator.className = 'status-indicator status-running';
                     
                     // Update satellite info
                     document.getElementById('satelliteInfo').textContent = 
-                        `${sat.satellite_id} • Altitude: ${sat.altitude || 550} km • Status: Active`;
+                        `${connectedSatId} • Altitude: ${sat.altitude || 550} km • Status: Active`;
                     
                     // Update satellite status panel
                     document.getElementById('satelliteStatus').innerHTML = `
@@ -1901,6 +2077,7 @@
                 hideLoading();
                 
                 if (data.success) {
+                    window.multiSatelliteEnabled = true;
                     document.getElementById('constellationStatus').innerHTML = `
                         <div style="background: rgba(39, 174, 96, 0.2); border: 2px solid var(--success-color); border-radius: 10px; padding: 15px;">
                             <h6 style="color: var(--success-color); margin-bottom: 10px;">
@@ -1909,10 +2086,15 @@
                             <p style="color: var(--text-light); margin: 0;">
                                 ${numSatellites} satellites are now active in the constellation.
                             </p>
+                            <p style="color: var(--text-muted); margin: 10px 0 0 0; font-size: 0.9rem;">
+                                Tip: Request any content and you will see exactly which satellite (LEO-X) you were connected to for that request.
+                            </p>
                         </div>
                     `;
                     loadConstellationStats();
                     visualizeConstellation(data.constellation_stats);
+                    loadSatelliteStatus();
+                    refreshNetworkViewFromConstellation();
                 } else {
                     alert('Error: ' + (data.error || 'Failed to enable multi-satellite mode'));
                 }
@@ -2176,9 +2358,11 @@
         
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            window.multiSatelliteEnabled = false;
             initAnimatedBackground();
             initNetworkVisualization();
             loadSatelliteStatus();
+            loadCachingStrategies();
             loadUsers();
             loadAvailableContent(); // Load content catalog
             setupMessageInput(); // Setup message input Enter key
@@ -2208,6 +2392,14 @@
                     if (!performanceChart || !contentChart) {
                         initializeAnalyticsCharts();
                     }
+                });
+            }
+
+            // Refresh network topology when Network tab is opened
+            const networkTab = document.querySelector('[data-bs-target="#network"]');
+            if (networkTab) {
+                networkTab.addEventListener('shown.bs.tab', function() {
+                    refreshNetworkViewFromConstellation();
                 });
             }
         });

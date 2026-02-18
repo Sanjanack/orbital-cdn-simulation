@@ -19,6 +19,21 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from enhanced_satellite_cdn import Satellite, SimulationConfig, Content
 
+from advanced_caching import LRUCache as AdvLRUCache, LFUCache, FIFOCache, AdaptiveCache
+
+def _create_constellation_cache(strategy: str, capacity: int):
+    """Create cache object for constellation satellites based on selected strategy."""
+    s = (strategy or "LRU").upper()
+    if s == "LRU":
+        return AdvLRUCache(capacity)
+    if s == "LFU":
+        return LFUCache(capacity)
+    if s == "FIFO":
+        return FIFOCache(capacity)
+    if s == "ADAPTIVE":
+        return AdaptiveCache(capacity)
+    return AdvLRUCache(capacity)
+
 @dataclass
 class SatellitePosition:
     """Satellite position in 3D space"""
@@ -39,13 +54,16 @@ class ConstellationSatellite(Satellite):
     """Enhanced satellite with constellation support"""
     
     def __init__(self, env: simpy.Environment, config: SimulationConfig, 
-                 satellite_id: str, position: SatellitePosition):
+                 satellite_id: str, position: SatellitePosition, caching_strategy: str = "LRU"):
         super().__init__(env, config)
         self.satellite_id = satellite_id
         self.position = position
         self.constellation = None  # Will be set by Constellation
         self.inter_satellite_requests = 0
         self.inter_satellite_hits = 0
+        self.caching_strategy = (caching_strategy or "LRU").upper()
+        # Override base OrderedDict cache with advanced cache implementation
+        self.cache_policy = _create_constellation_cache(self.caching_strategy, self.cache_size)
         
     def request_content_from_neighbor(self, content_id: str, content: Content) -> Optional[Dict]:
         """Request content from neighboring satellites"""
@@ -60,14 +78,15 @@ class ConstellationSatellite(Satellite):
                 continue
             
             # Check if neighbor has content
-            if content_id in neighbor.cache:
+            if neighbor.cache_policy.contains(content_id):
                 self.inter_satellite_requests += 1
                 self.inter_satellite_hits += 1
                 
-                # Move content to this satellite's cache
-                if len(self.cache) >= self.cache_size:
-                    self.cache.popitem(last=False)
-                self.cache[content_id] = content
+                # Pull from neighbor and store locally
+                neighbor_content = neighbor.cache_policy.get(content_id)
+                if neighbor_content is None:
+                    neighbor_content = content
+                self.cache_policy.put(content_id, neighbor_content)
                 
                 return {
                     'status': 'Neighbor Hit',
@@ -82,10 +101,11 @@ class ConstellationSatellite(Satellite):
         """Enhanced request with inter-satellite support"""
         self.total_requests += 1
         current_time = self.env.now
+        strategy_name = self.cache_policy.get_stats().get('strategy', self.caching_strategy)
         
         # Check local cache first
-        if content_id in self.cache:
-            self.cache.move_to_end(content_id)
+        if self.cache_policy.contains(content_id):
+            self.cache_policy.get(content_id)
             self.cache_hits += 1
             status = 'Hit'
             delivery_source = f'{self.satellite_id} Cache'
@@ -102,20 +122,19 @@ class ConstellationSatellite(Satellite):
                 self.cache_misses += 1
                 status = 'Miss'
                 delivery_source = 'Ground Station'
-                
-                # Handle cache eviction
-                if len(self.cache) >= self.cache_size:
-                    self.cache.popitem(last=False)
-                    self.cache_evictions += 1
-                
-                # Add to cache
-                self.cache[content_id] = content
+                # Add to cache via selected strategy
+                before_evictions = self.cache_policy.get_stats().get('evictions', 0)
+                self.cache_policy.put(content_id, content)
+                after_evictions = self.cache_policy.get_stats().get('evictions', 0)
+                if after_evictions > before_evictions:
+                    self.cache_evictions += (after_evictions - before_evictions)
         
         # Update delivery statistics
         self.total_content_delivered += content.size
         
         # Calculate metrics
-        cache_utilization = len(self.cache) / self.cache_size
+        cache_stats = self.cache_policy.get_stats()
+        cache_utilization = (cache_stats.get('utilization', 0) / 100) if cache_stats.get('utilization', None) is not None else 0
         hit_rate = (self.cache_hits / self.total_requests) * 100 if self.total_requests > 0 else 0
         
         # Create log entry
@@ -128,13 +147,14 @@ class ConstellationSatellite(Satellite):
             'status': status,
             'delivery_source': delivery_source,
             'satellite_id': self.satellite_id,
-            'cache_size': len(self.cache),
+            'cache_size': cache_stats.get('size', 0),
             'cache_utilization': cache_utilization,
             'hit_rate': hit_rate,
             'total_requests': self.total_requests,
             'cache_hits': self.cache_hits,
             'cache_misses': self.cache_misses,
-            'inter_satellite_hits': self.inter_satellite_hits
+            'inter_satellite_hits': self.inter_satellite_hits,
+            'caching_strategy': strategy_name
         }
         
         self.request_log.append(log_entry)
@@ -149,9 +169,9 @@ class SatelliteConstellation:
         self.satellites: List[ConstellationSatellite] = []
         self.satellite_map: Dict[str, ConstellationSatellite] = {}
         
-    def add_satellite(self, satellite_id: str, position: SatellitePosition) -> ConstellationSatellite:
+    def add_satellite(self, satellite_id: str, position: SatellitePosition, caching_strategy: str = "LRU") -> ConstellationSatellite:
         """Add a satellite to the constellation"""
-        satellite = ConstellationSatellite(self.env, self.config, satellite_id, position)
+        satellite = ConstellationSatellite(self.env, self.config, satellite_id, position, caching_strategy=caching_strategy)
         satellite.constellation = self
         self.satellites.append(satellite)
         self.satellite_map[satellite_id] = satellite
@@ -181,6 +201,16 @@ class SatelliteConstellation:
         total_requests = sum(s.total_requests for s in self.satellites)
         total_hits = sum(s.cache_hits for s in self.satellites)
         total_inter_satellite_hits = sum(s.inter_satellite_hits for s in self.satellites)
+        # Strategy may vary for Adaptive; show per-satellite and an overall label
+        strategies = []
+        for s in self.satellites:
+            try:
+                strategies.append(s.cache_policy.get_stats().get('strategy', getattr(s, 'caching_strategy', 'LRU')))
+            except Exception:
+                strategies.append(getattr(s, 'caching_strategy', 'LRU'))
+        overall_strategy = strategies[0] if strategies else 'LRU'
+        if any(st != overall_strategy for st in strategies):
+            overall_strategy = 'ADAPTIVE'
         
         return {
             'total_satellites': len(self.satellites),
@@ -190,6 +220,7 @@ class SatelliteConstellation:
             'overall_hit_rate': (total_hits / total_requests * 100) if total_requests > 0 else 0,
             'inter_satellite_hits': total_inter_satellite_hits,
             'inter_satellite_hit_rate': (total_inter_satellite_hits / total_requests * 100) if total_requests > 0 else 0,
+            'caching_strategy': overall_strategy,
             'satellites': [{
                 'id': s.satellite_id,
                 'position': {
@@ -197,9 +228,10 @@ class SatelliteConstellation:
                     'longitude': s.position.longitude,
                     'altitude': s.position.altitude
                 },
-                'cache_utilization': len(s.cache) / s.cache_size if s.cache_size > 0 else 0,
+                'cache_utilization': (s.cache_policy.get_stats().get('utilization', 0) / 100) if s.cache_size > 0 else 0,
                 'hit_rate': (s.cache_hits / s.total_requests * 100) if s.total_requests > 0 else 0,
-                'total_requests': s.total_requests
+                'total_requests': s.total_requests,
+                'caching_strategy': (s.cache_policy.get_stats().get('strategy', getattr(s, 'caching_strategy', 'LRU')))
             } for s in self.satellites]
         }
     
@@ -209,7 +241,7 @@ class SatelliteConstellation:
         return self.satellites[hash(user_id) % len(self.satellites)]
 
 def create_leo_constellation(env: simpy.Environment, config: SimulationConfig, 
-                            num_satellites: int = 5) -> SatelliteConstellation:
+                            num_satellites: int = 5, caching_strategy: str = "LRU") -> SatelliteConstellation:
     """Create a realistic LEO satellite constellation"""
     constellation = SatelliteConstellation(env, config)
     
@@ -227,7 +259,7 @@ def create_leo_constellation(env: simpy.Environment, config: SimulationConfig,
         )
         
         satellite_id = f'LEO-{i+1}'
-        constellation.add_satellite(satellite_id, position)
+        constellation.add_satellite(satellite_id, position, caching_strategy=caching_strategy)
     
     return constellation
 
